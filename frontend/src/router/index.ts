@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -11,6 +12,7 @@ const router = createRouter({
       path: "/login",
       name: "Login",
       component: () => import("@/views/Login.vue"),
+      meta: { guest: true },
     },
     {
       path: "/chat",
@@ -43,6 +45,27 @@ const router = createRouter({
       component: () => import("@/views/admin/AdminSettings.vue"),
     },
   ],
+});
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore();
+
+  // On first visit, try to restore session if token exists
+  if (!auth.isAuthenticated) {
+    const ok = await auth.refreshAccessToken();
+    if (ok) {
+      await auth.fetchUser();
+    }
+  }
+
+  if (to.meta.guest) {
+    // Already logged in, redirect to chat
+    if (auth.isAuthenticated) return "/chat";
+    return true;
+  }
+
+  if (!auth.isAuthenticated) return "/login";
+  return true;
 });
 
 export default router;

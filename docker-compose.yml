@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ─── Nginx Reverse Proxy ───
   nginx:
@@ -75,7 +73,7 @@ services:
 
   # ─── Qdrant Vector DB ───
   qdrant:
-    image: qdrant/qdrant:v1.13
+    image: qdrant/qdrant:latest
     container_name: agent-qdrant
     volumes:
       - qdrant_data:/qdrant/storage
@@ -84,7 +82,7 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333 && echo -e 'GET /healthz HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q passed <&3"]
       interval: 5s
       timeout: 3s
       retries: 5

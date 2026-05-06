@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 class RegisterRequest(BaseModel):
     username: str
     email: str
@@ -8,20 +13,21 @@ class RegisterRequest(BaseModel):
     display_name: str | None = None
 
 
-class LoginResponse(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
 class TokenRefresh(BaseModel):
-    access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+
+
+from uuid import UUID
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     username: str
     email: str
     display_name: str | None = None
