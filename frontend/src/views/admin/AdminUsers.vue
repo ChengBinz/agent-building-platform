@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { listUsers, updateUserStatus, deleteUser } from "@/api/admin";
 import { formatDateTime } from "@/utils/format";
 import type { User } from "@/types";
@@ -94,8 +94,9 @@ async function handleToggleActive(user: User) {
   try {
     await updateUserStatus(user.id, { is_active: !user.is_active });
     user.is_active = !user.is_active;
-  } catch {
-    // handled by interceptor
+  } catch (err: any) {
+    if (err.response?.status === 401) return;
+    ElMessage.error(err.response?.data?.detail || "操作失败");
   }
 }
 
@@ -109,8 +110,9 @@ async function handleDelete(user: User) {
     await deleteUser(user.id);
     users.value = users.value.filter((u) => u.id !== user.id);
     total.value--;
-  } catch {
-    // cancelled
+  } catch (err: any) {
+    if (err === "cancel" || err === "close") return;
+    ElMessage.error(err.response?.data?.detail || "删除失败");
   }
 }
 </script>
