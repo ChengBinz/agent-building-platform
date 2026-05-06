@@ -1,2 +1,69 @@
-# GET /conversations, POST /send (SSE streaming)
-# TODO: implement
+"""Chat conversations API."""
+import uuid
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.db.session import get_db
+from app.models.user import User
+from app.schemas.chat import (
+    ConversationCreate,
+    ConversationOut,
+    ConversationListItem,
+    SendMessageRequest,
+    SendMessageResponse,
+)
+from app.services.chat_service import ChatService
+
+router = APIRouter()
+
+
+@router.get("/conversations", response_model=list[ConversationListItem])
+async def list_conversations(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    return await service.list_conversations(current_user.id)
+
+
+@router.post("/conversations", response_model=ConversationOut, status_code=201)
+async def create_conversation(
+    data: ConversationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    return await service.create_conversation(current_user.id, data)
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationOut)
+async def get_conversation(
+    conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    return await service.get_conversation(current_user.id, conversation_id)
+
+
+@router.delete("/conversations/{conversation_id}", status_code=204)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    await service.delete_conversation(current_user.id, conversation_id)
+
+
+@router.post("/conversations/{conversation_id}/send", response_model=SendMessageResponse)
+async def send_message(
+    conversation_id: uuid.UUID,
+    data: SendMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    return await service.send_message(current_user.id, conversation_id, data)

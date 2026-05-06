@@ -15,34 +15,40 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
-      path: "/chat",
-      name: "Chat",
-      component: () => import("@/views/ChatView.vue"),
-    },
-    {
-      path: "/knowledge",
-      name: "Knowledge",
-      component: () => import("@/views/KnowledgeView.vue"),
-    },
-    {
-      path: "/models",
-      name: "Models",
-      component: () => import("@/views/ModelsView.vue"),
-    },
-    {
-      path: "/monitoring",
-      name: "Monitoring",
-      component: () => import("@/views/MonitorView.vue"),
-    },
-    {
-      path: "/admin/users",
-      name: "AdminUsers",
-      component: () => import("@/views/admin/AdminUsers.vue"),
-    },
-    {
-      path: "/admin/settings",
-      name: "AdminSettings",
-      component: () => import("@/views/admin/AdminSettings.vue"),
+      path: "/",
+      component: () => import("@/components/layout/AppLayout.vue"),
+      children: [
+        {
+          path: "/chat",
+          name: "Chat",
+          component: () => import("@/views/ChatView.vue"),
+        },
+        {
+          path: "/knowledge",
+          name: "Knowledge",
+          component: () => import("@/views/KnowledgeView.vue"),
+        },
+        {
+          path: "/models",
+          name: "Models",
+          component: () => import("@/views/ModelsView.vue"),
+        },
+        {
+          path: "/monitoring",
+          name: "Monitoring",
+          component: () => import("@/views/MonitorView.vue"),
+        },
+        {
+          path: "/admin/users",
+          name: "AdminUsers",
+          component: () => import("@/views/admin/AdminUsers.vue"),
+        },
+        {
+          path: "/admin/settings",
+          name: "AdminSettings",
+          component: () => import("@/views/admin/AdminSettings.vue"),
+        },
+      ],
     },
   ],
 });

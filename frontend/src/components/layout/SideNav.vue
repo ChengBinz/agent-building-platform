@@ -40,6 +40,7 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useAppStore } from "@/stores/app";
+import { ChatDotRound, Folder, Setting, DataAnalysis, UserFilled } from "@element-plus/icons-vue";
 
 const route = useRoute();
 const appStore = useAppStore();
