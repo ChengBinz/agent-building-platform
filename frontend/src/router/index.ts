@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { ElMessage } from "element-plus";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -42,11 +43,13 @@ const router = createRouter({
           path: "/admin/users",
           name: "AdminUsers",
           component: () => import("@/views/admin/AdminUsers.vue"),
+          meta: { requiresAdmin: true },
         },
         {
           path: "/admin/settings",
           name: "AdminSettings",
           component: () => import("@/views/admin/AdminSettings.vue"),
+          meta: { requiresAdmin: true },
         },
       ],
     },
@@ -71,6 +74,13 @@ router.beforeEach(async (to) => {
   }
 
   if (!auth.isAuthenticated) return "/login";
+
+  // Admin routes require superuser
+  if (to.meta.requiresAdmin && !auth.isAdmin) {
+    ElMessage.warning("无权访问管理页面");
+    return "/chat";
+  }
+
   return true;
 });
 

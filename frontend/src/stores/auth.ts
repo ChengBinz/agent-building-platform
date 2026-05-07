@@ -11,18 +11,19 @@ export const useAuthStore = defineStore("auth", () => {
   const loading = ref(false);
 
   const isAuthenticated = computed(() => !!user.value);
+  const isAdmin = computed(() => user.value?.is_superuser === true);
 
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string, silent = false) {
     loading.value = true;
     try {
       const { data } = await apiClient.post("/auth/login", { username, password });
       setToken(data.access_token);
       setRefreshToken(data.refresh_token);
       await fetchUser();
-      ElMessage.success("登录成功");
+      if (!silent) ElMessage.success("登录成功");
       return true;
     } catch (e: any) {
-      ElMessage.error(e.response?.data?.detail || "登录失败");
+      if (!silent) ElMessage.error(e.response?.data?.detail || "登录失败");
       return false;
     } finally {
       loading.value = false;
@@ -41,6 +42,25 @@ export const useAuthStore = defineStore("auth", () => {
       return await login(params.username, params.password);
     } catch (e: any) {
       ElMessage.error(e.response?.data?.detail || "注册失败");
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function registerAdmin(params: {
+    username: string;
+    email: string;
+    password: string;
+    display_name?: string;
+    admin_code: string;
+  }) {
+    loading.value = true;
+    try {
+      await apiClient.post("/auth/register/admin", params);
+      return await login(params.username, params.password);
+    } catch (e: any) {
+      ElMessage.error(e.response?.data?.detail || "管理员注册失败");
       return false;
     } finally {
       loading.value = false;
@@ -70,11 +90,11 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  function logout() {
+  function logout(silent = false) {
     clearTokens();
     user.value = null;
-    ElMessage.success("已退出登录");
+    if (!silent) ElMessage.success("已退出登录");
   }
 
-  return { user, loading, isAuthenticated, login, register, fetchUser, refreshAccessToken, logout };
+  return { user, loading, isAuthenticated, isAdmin, login, register, registerAdmin, fetchUser, refreshAccessToken, logout };
 });

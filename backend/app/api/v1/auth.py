@@ -5,6 +5,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    AdminRegisterRequest,
     LoginRequest,
     RegisterRequest,
     TokenRefresh,
@@ -20,6 +21,13 @@ router = APIRouter()
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     user = await service.register(data)
+    return user
+
+
+@router.post("/register/admin", response_model=UserResponse, status_code=201)
+async def register_admin(data: AdminRegisterRequest, db: AsyncSession = Depends(get_db)):
+    service = AuthService(db)
+    user = await service.register_admin(data)
     return user
 
 

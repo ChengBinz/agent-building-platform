@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Admin
+    ADMIN_REGISTRATION_CODE: str | None = None
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -28,7 +28,7 @@
         <el-icon><DataAnalysis /></el-icon>
         <span>监控面板</span>
       </el-menu-item>
-      <el-menu-item index="/admin/users">
+      <el-menu-item v-if="auth.isAdmin" index="/admin/users">
         <el-icon><UserFilled /></el-icon>
         <span>系统管理</span>
       </el-menu-item>
@@ -40,10 +40,12 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useAppStore } from "@/stores/app";
+import { useAuthStore } from "@/stores/auth";
 import { ChatDotRound, Folder, Setting, DataAnalysis, UserFilled } from "@element-plus/icons-vue";
 
 const route = useRoute();
 const appStore = useAppStore();
+const auth = useAuthStore();
 
 const collapsed = computed(() => appStore.sidebarCollapsed);
 const currentRoute = computed(() => route.path);

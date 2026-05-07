@@ -8,6 +8,8 @@
       <span class="user-info">
         <el-icon><UserFilled /></el-icon>
         <span>{{ auth.user?.display_name || auth.user?.username || '用户' }}</span>
+        <el-tag v-if="auth.isAdmin" size="small" type="danger" style="margin-left: 6px;">管理员</el-tag>
+        <el-tag v-else size="small" type="info" style="margin-left: 6px;">用户</el-tag>
       </span>
       <template #dropdown>
         <el-dropdown-menu>

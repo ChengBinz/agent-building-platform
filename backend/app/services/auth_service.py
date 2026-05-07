@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.security import (
     hash_password,
     verify_password,
@@ -10,7 +11,7 @@ from app.core.security import (
     decode_refresh_token,
 )
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, TokenResponse
+from app.schemas.auth import AdminRegisterRequest, RegisterRequest, TokenResponse
 
 
 class AuthService:
@@ -80,3 +81,37 @@ class AuthService:
             access_token=create_access_token(str(user.id)),
             refresh_token=create_refresh_token(str(user.id)),
         )
+
+    async def register_admin(self, data: AdminRegisterRequest) -> User:
+        if not settings.ADMIN_REGISTRATION_CODE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="管理员自助注册已关闭",
+            )
+
+        if data.admin_code != settings.ADMIN_REGISTRATION_CODE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="管理员注册码无效",
+            )
+
+        result = await self.db.execute(
+            select(User).where((User.username == data.username) | (User.email == data.email))
+        )
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username or email already exists",
+            )
+
+        user = User(
+            username=data.username,
+            email=data.email,
+            hashed_password=hash_password(data.password),
+            display_name=data.display_name,
+            is_superuser=True,
+        )
+        self.db.add(user)
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
