@@ -12,26 +12,30 @@
       active-text-color="#409eff"
       router
     >
-      <el-menu-item index="/chat">
-        <el-icon><ChatDotRound /></el-icon>
-        <span>对话</span>
-      </el-menu-item>
-      <el-menu-item index="/knowledge">
-        <el-icon><Folder /></el-icon>
-        <span>知识库</span>
-      </el-menu-item>
-      <el-menu-item index="/models">
-        <el-icon><Setting /></el-icon>
-        <span>模型配置</span>
-      </el-menu-item>
-      <el-menu-item index="/monitoring">
-        <el-icon><DataAnalysis /></el-icon>
-        <span>监控面板</span>
-      </el-menu-item>
-      <el-menu-item v-if="auth.isAdmin" index="/admin/users">
-        <el-icon><UserFilled /></el-icon>
-        <span>系统管理</span>
-      </el-menu-item>
+      <template v-if="!auth.isAdmin">
+        <el-menu-item index="/chat">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>对话</span>
+        </el-menu-item>
+        <el-menu-item index="/knowledge">
+          <el-icon><Folder /></el-icon>
+          <span>知识库</span>
+        </el-menu-item>
+        <el-menu-item index="/models">
+          <el-icon><Setting /></el-icon>
+          <span>模型配置</span>
+        </el-menu-item>
+        <el-menu-item index="/monitoring">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>监控面板</span>
+        </el-menu-item>
+      </template>
+      <template v-if="auth.isAdmin">
+        <el-menu-item index="/admin/users">
+          <el-icon><UserFilled /></el-icon>
+          <span>系统管理</span>
+        </el-menu-item>
+      </template>
     </el-menu>
   </div>
 </template>

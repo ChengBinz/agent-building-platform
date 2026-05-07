@@ -43,3 +43,20 @@ class UserResponse(BaseModel):
     is_superuser: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class ApiKeyCreate(BaseModel):
+    provider: str
+    api_key: str
+    base_url: str | None = None
+
+
+class ApiKeyOut(BaseModel):
+    id: UUID
+    provider: str
+    api_key_masked: str
+    base_url: str | None = None
+    is_active: bool
+    created_at: str
+
+    model_config = {"from_attributes": True}

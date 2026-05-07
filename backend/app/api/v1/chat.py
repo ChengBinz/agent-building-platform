@@ -2,6 +2,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -9,6 +10,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.chat import (
     ConversationCreate,
+    ConversationUpdate,
     ConversationOut,
     ConversationListItem,
     SendMessageRequest,
@@ -48,6 +50,17 @@ async def get_conversation(
     return await service.get_conversation(current_user.id, conversation_id)
 
 
+@router.patch("/conversations/{conversation_id}", response_model=ConversationOut)
+async def update_conversation(
+    conversation_id: uuid.UUID,
+    data: ConversationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    return await service.update_conversation(current_user.id, conversation_id, data)
+
+
 @router.delete("/conversations/{conversation_id}", status_code=204)
 async def delete_conversation(
     conversation_id: uuid.UUID,
@@ -67,3 +80,17 @@ async def send_message(
 ):
     service = ChatService(db)
     return await service.send_message(current_user.id, conversation_id, data)
+
+
+@router.post("/conversations/{conversation_id}/send-stream")
+async def send_message_stream(
+    conversation_id: uuid.UUID,
+    data: SendMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatService(db)
+    return StreamingResponse(
+        service.send_message_stream(current_user.id, conversation_id, data),
+        media_type="text/event-stream",
+    )

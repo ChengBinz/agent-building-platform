@@ -68,8 +68,9 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guest) {
-    // Already logged in, redirect to chat
-    if (auth.isAuthenticated) return "/chat";
+    if (auth.isAuthenticated) {
+      return auth.isAdmin ? "/admin/users" : "/chat";
+    }
     return true;
   }
 
@@ -79,6 +80,11 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     ElMessage.warning("无权访问管理页面");
     return "/chat";
+  }
+
+  // Admin users can only access admin pages
+  if (auth.isAdmin && !to.meta.requiresAdmin) {
+    return "/admin/users";
   }
 
   return true;

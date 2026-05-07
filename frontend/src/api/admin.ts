@@ -34,3 +34,15 @@ export async function getUsageSummary() {
 export async function getUsageByModel() {
   return apiClient.get("/monitoring/usage-by-model");
 }
+
+export async function listApiKeys() {
+  return apiClient.get("/auth/api-keys");
+}
+
+export async function saveApiKey(data: { provider: string; api_key: string; base_url?: string }) {
+  return apiClient.post("/auth/api-keys", data);
+}
+
+export async function deleteApiKey(id: string) {
+  return apiClient.delete(`/auth/api-keys/${id}`);
+}

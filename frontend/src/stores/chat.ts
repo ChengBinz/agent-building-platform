@@ -9,6 +9,7 @@ export const useChatStore = defineStore("chat", () => {
   const currentConversation = ref<Conversation | null>(null);
   const loading = ref(false);
   const sending = ref(false);
+  let streamController: AbortController | null = null;
 
   async function fetchConversations() {
     loading.value = true;
@@ -25,15 +26,42 @@ export const useChatStore = defineStore("chat", () => {
   async function createConversation(params?: {
     title?: string;
     model_name?: string;
+    provider?: string;
     system_prompt?: string;
   }) {
+    const defaults = {
+      title: new Date().toLocaleString("zh-CN", { hour12: false }) + " 对话",
+    };
     try {
-      const { data } = await chatApi.createConversation(params || {});
+      const { data } = await chatApi.createConversation({ ...defaults, ...params });
       conversations.value.unshift(data);
       currentConversation.value = data;
       return data;
     } catch (e: any) {
       ElMessage.error(e.response?.data?.detail || "创建对话失败");
+      return null;
+    }
+  }
+
+  async function updateConversation(id: string, params: {
+    title?: string;
+    model_name?: string;
+    provider?: string;
+  }) {
+    try {
+      const { data } = await chatApi.updateConversation(id, params);
+      // Update in list
+      const idx = conversations.value.findIndex((c) => c.id === id);
+      if (idx !== -1) {
+        conversations.value[idx] = { ...conversations.value[idx], ...data };
+      }
+      // Update current if active
+      if (currentConversation.value?.id === id) {
+        currentConversation.value = { ...currentConversation.value, ...data };
+      }
+      return data;
+    } catch (e: any) {
+      ElMessage.error(e.response?.data?.detail || "更新对话失败");
       return null;
     }
   }
@@ -51,49 +79,110 @@ export const useChatStore = defineStore("chat", () => {
   }
 
   async function deleteConversation(id: string) {
-    try {
-      await chatApi.deleteConversation(id);
-      conversations.value = conversations.value.filter((c) => c.id !== id);
-      if (currentConversation.value?.id === id) {
+    // Snapshot for rollback
+    const wasCurrent = currentConversation.value?.id === id;
+    const removedConv = conversations.value.find((c) => c.id === id);
+    const removedIdx = conversations.value.findIndex((c) => c.id === id);
+
+    // Determine next conversation to switch to
+    let nextId: string | null = null;
+    if (wasCurrent && conversations.value.length > 1) {
+      if (removedIdx < conversations.value.length - 1) {
+        nextId = conversations.value[removedIdx + 1].id;
+      } else {
+        nextId = conversations.value[removedIdx - 1].id;
+      }
+    }
+
+    // Optimistic: remove from list immediately
+    conversations.value = conversations.value.filter((c) => c.id !== id);
+    if (wasCurrent) {
+      if (nextId) {
+        // Switch to next conversation (basic info, messages load in background)
+        currentConversation.value = conversations.value.find((c) => c.id === nextId) || null;
+        // Load full messages async - don't await, let it load in background
+        selectConversation(nextId);
+      } else {
         currentConversation.value = null;
       }
+    }
+
+    try {
+      await chatApi.deleteConversation(id);
       ElMessage.success("对话已删除");
     } catch (e: any) {
+      // Rollback
+      if (removedConv) {
+        conversations.value.splice(removedIdx, 0, removedConv);
+      }
+      if (wasCurrent) {
+        currentConversation.value = removedConv || null;
+      }
       ElMessage.error(e.response?.data?.detail || "删除对话失败");
+    }
+  }
+
+  function cancelStream() {
+    if (streamController) {
+      streamController.abort();
+      streamController = null;
     }
   }
 
   async function sendMessage(content: string) {
     if (!currentConversation.value) return;
     sending.value = true;
-    try {
-      // Optimistic: add user message
-      currentConversation.value.messages = currentConversation.value.messages || [];
-      currentConversation.value.messages.push({
-        id: "",
-        conversation_id: currentConversation.value.id,
-        role: "user",
-        content,
-        created_at: new Date().toISOString(),
-      });
 
-      const { data } = await chatApi.sendMessage(currentConversation.value.id, content);
+    // Cancel any existing stream
+    cancelStream();
 
-      // Add assistant reply
-      currentConversation.value.messages.push({
-        id: "",
-        conversation_id: currentConversation.value.id,
-        role: data.role,
-        content: data.content,
-        created_at: new Date().toISOString(),
-      });
+    const conv = currentConversation.value;
+    conv.messages = conv.messages || [];
 
-      currentConversation.value.message_count += 2;
-    } catch (e: any) {
-      ElMessage.error(e.response?.data?.detail || "发送消息失败");
-    } finally {
-      sending.value = false;
-    }
+    // Add user message optimistically
+    conv.messages.push({
+      id: "",
+      conversation_id: conv.id,
+      role: "user",
+      content,
+      created_at: new Date().toISOString(),
+    });
+
+    // Create placeholder for assistant reply
+    const assistantMsg: Message = {
+      id: "",
+      conversation_id: conv.id,
+      role: "assistant",
+      content: "",
+      created_at: new Date().toISOString(),
+    };
+    conv.messages.push(assistantMsg);
+
+    let hasError = false;
+
+    streamController = chatApi.sendMessageStream(
+      conv.id,
+      content,
+      (token: string) => {
+        assistantMsg.content += token;
+      },
+      () => {
+        // onDone
+        conv.message_count += 2;
+        sending.value = false;
+        streamController = null;
+      },
+      (err: string) => {
+        // onError
+        if (!assistantMsg.content) {
+          assistantMsg.content = `发送失败: ${err}`;
+        }
+        hasError = true;
+        ElMessage.error(`发送失败: ${err}`);
+        sending.value = false;
+        streamController = null;
+      },
+    );
   }
 
   return {
@@ -105,6 +194,8 @@ export const useChatStore = defineStore("chat", () => {
     createConversation,
     selectConversation,
     deleteConversation,
+    updateConversation,
     sendMessage,
+    cancelStream,
   };
 });

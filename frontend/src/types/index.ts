@@ -15,6 +15,7 @@ export interface Conversation {
   id: string;
   title: string;
   model_name: string;
+  provider: string;
   message_count: number;
   total_tokens: number;
   created_at: string;
@@ -92,4 +93,13 @@ export interface SystemStats {
   knowledge_base_count: number;
   document_count: number;
   total_tokens: number;
+}
+
+export interface ApiKeyInfo {
+  id: string;
+  provider: string;
+  api_key_masked: string;
+  base_url?: string;
+  is_active: boolean;
+  created_at: string;
 }

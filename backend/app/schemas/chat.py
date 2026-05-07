@@ -8,11 +8,14 @@ from pydantic import BaseModel
 class ConversationCreate(BaseModel):
     title: str = "新的对话"
     model_name: str = "gpt-4o-mini"
+    provider: str = ""
     system_prompt: str | None = None
 
 
 class ConversationUpdate(BaseModel):
     title: str | None = None
+    model_name: str | None = None
+    provider: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -30,6 +33,7 @@ class ConversationOut(BaseModel):
     id: UUID
     title: str
     model_name: str
+    provider: str = ""
     message_count: int
     total_tokens: int
     created_at: datetime
@@ -43,6 +47,7 @@ class ConversationListItem(BaseModel):
     id: UUID
     title: str
     model_name: str
+    provider: str = ""
     message_count: int
     total_tokens: int
     created_at: datetime
