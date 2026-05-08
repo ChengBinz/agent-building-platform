@@ -445,6 +445,8 @@ async function handleDeleteConv(id: string) {
       type: "warning",
     });
     await chatStore.deleteConversation(id);
+    // Sync agentStore list
+    agentStore.conversations = agentStore.conversations.filter((c) => c.id !== id);
   } catch {
     // cancelled
   }
