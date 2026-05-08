@@ -149,15 +149,15 @@ export const useChatStore = defineStore("chat", () => {
       created_at: new Date().toISOString(),
     });
 
-    // Create placeholder for assistant reply
-    const assistantMsg: Message = {
+    // Create placeholder for assistant reply - 通过数组索引访问确保响应式
+    const assistantMsgIndex = conv.messages.length;
+    conv.messages.push({
       id: "",
       conversation_id: conv.id,
       role: "assistant",
       content: "",
       created_at: new Date().toISOString(),
-    };
-    conv.messages.push(assistantMsg);
+    });
 
     let hasError = false;
 
@@ -165,7 +165,11 @@ export const useChatStore = defineStore("chat", () => {
       conv.id,
       content,
       (token: string) => {
-        assistantMsg.content += token;
+        // 通过数组索引访问，确保 Vue 能检测到变化
+        const messages = conv.messages;
+        if (messages && messages[assistantMsgIndex]) {
+          messages[assistantMsgIndex].content += token;
+        }
       },
       () => {
         // onDone
@@ -175,8 +179,9 @@ export const useChatStore = defineStore("chat", () => {
       },
       (err: string) => {
         // onError
-        if (!assistantMsg.content) {
-          assistantMsg.content = `发送失败: ${err}`;
+        const messages = conv.messages;
+        if (messages && messages[assistantMsgIndex] && !messages[assistantMsgIndex].content) {
+          messages[assistantMsgIndex].content = `发送失败: ${err}`;
         }
         hasError = true;
         ElMessage.error(`发送失败: ${err}`);

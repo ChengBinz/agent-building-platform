@@ -17,6 +17,15 @@ export default defineConfig({
       "/api": {
         target: apiTarget,
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            // 对 SSE 流式请求禁用缓冲
+            if (req.url?.includes("/send-stream")) {
+              proxyReq.setHeader("Accept", "text/event-stream");
+              proxyReq.setHeader("Cache-Control", "no-cache");
+            }
+          });
+        },
       },
     },
   },

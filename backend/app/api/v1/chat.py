@@ -87,10 +87,17 @@ async def send_message_stream(
     conversation_id: uuid.UUID,
     data: SendMessageRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    service = ChatService(db)
+    # 必须在 StreamingResponse 内部创建 session，否则生成器执行时 session 已关闭
+    from app.db.session import async_session_factory
+
+    async def stream_with_session():
+        async with async_session_factory() as db:
+            service = ChatService(db)
+            async for chunk in service.send_message_stream(current_user.id, conversation_id, data):
+                yield chunk
+
     return StreamingResponse(
-        service.send_message_stream(current_user.id, conversation_id, data),
+        stream_with_session(),
         media_type="text/event-stream",
     )
