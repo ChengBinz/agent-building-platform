@@ -93,9 +93,14 @@ async def send_message_stream(
 
     async def stream_with_session():
         async with async_session_factory() as db:
-            service = ChatService(db)
-            async for chunk in service.send_message_stream(current_user.id, conversation_id, data):
-                yield chunk
+            try:
+                service = ChatService(db)
+                async for chunk in service.send_message_stream(current_user.id, conversation_id, data):
+                    yield chunk
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
 
     return StreamingResponse(
         stream_with_session(),

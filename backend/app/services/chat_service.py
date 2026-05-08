@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.engine.registry import get_provider
 from app.models.api_key import ApiKey
@@ -49,7 +50,9 @@ class ChatService:
         self, user_id: uuid.UUID, conversation_id: uuid.UUID
     ) -> Conversation:
         result = await self.db.execute(
-            select(Conversation).where(
+            select(Conversation)
+            .options(selectinload(Conversation.messages))
+            .where(
                 Conversation.id == conversation_id,
                 Conversation.user_id == user_id,
             )
