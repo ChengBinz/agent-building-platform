@@ -126,15 +126,16 @@ export const useChatStore = defineStore("chat", () => {
     if (streamController) {
       streamController.abort();
       streamController = null;
+      sending.value = false;
     }
   }
 
   async function sendMessage(content: string) {
     if (!currentConversation.value) return;
-    sending.value = true;
 
-    // Cancel any existing stream
+    // Cancel any existing stream before starting a new one
     cancelStream();
+    sending.value = true;
 
     const conv = currentConversation.value;
     conv.messages = conv.messages || [];
