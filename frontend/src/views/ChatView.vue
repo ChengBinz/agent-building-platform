@@ -1,45 +1,109 @@
 <template>
   <div class="chat-view">
+    <!-- Sidebar: Agents + Conversations -->
     <div class="chat-sidebar">
       <div class="sidebar-header">
-        <el-button type="primary" @click="showNewChatDialog = true" :icon="Plus">
-          新建对话
+        <el-button type="primary" @click="handleCreateAgent" :icon="Plus">
+          新建智能体
         </el-button>
       </div>
-      <div class="conversation-list" v-loading="chatStore.loading">
+      <div class="sidebar-body" v-loading="agentStore.loading">
+        <!-- Agent list -->
         <div
-          v-for="conv in chatStore.conversations"
-          :key="conv.id"
-          class="conv-item"
-          :class="{ active: chatStore.currentConversation?.id === conv.id }"
-          @click="chatStore.selectConversation(conv.id)"
+          v-for="agent in agentStore.agents"
+          :key="agent.id"
+          class="agent-group"
+          :class="{ expanded: agentStore.currentAgent?.id === agent.id }"
         >
-          <div class="conv-title">{{ conv.title }}</div>
-          <div class="conv-meta">
-            <span>{{ conv.provider }}/{{ conv.model_name }}</span>
-            <span>{{ conv.message_count }} 条消息</span>
+          <div
+            class="agent-item"
+            @click="handleSelectAgent(agent.id)"
+          >
+            <div class="agent-avatar">
+              <el-avatar :size="28" :src="agent.avatar">
+                {{ agent.name.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="agent-info">
+              <div class="agent-name">{{ agent.name }}</div>
+              <div class="agent-meta">
+                {{ agent.provider ? agent.provider + '/' + agent.model_name : '未配置模型' }}
+              </div>
+            </div>
+            <div class="agent-actions" @click.stop>
+              <el-button text size="small" @click="openAgentConfig(agent)">
+                <el-icon><Setting /></el-icon>
+              </el-button>
+              <el-button text size="small" type="danger" @click="handleDeleteAgent(agent.id)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
           </div>
-          <span class="conv-delete" @click.stop>
-            <el-button
-              text
-              type="danger"
-              size="small"
-              @click="handleDelete(conv.id)"
+          <!-- Conversations for this agent -->
+          <div v-if="agentStore.currentAgent?.id === agent.id" class="conv-sublist">
+            <div class="conv-sublist-header">
+              <span>对话列表</span>
+              <el-button text size="small" type="primary" @click="handleCreateConv">
+                <el-icon><Plus /></el-icon>
+              </el-button>
+            </div>
+            <div
+              v-for="conv in agentStore.conversations"
+              :key="conv.id"
+              class="conv-item"
+              :class="{ active: chatStore.currentConversation?.id === conv.id }"
+              @click="handleSelectConv(conv.id)"
             >
-              <el-icon><Delete /></el-icon>
-            </el-button>
-          </span>
+              <div class="conv-title">{{ conv.title }}</div>
+              <div class="conv-meta">{{ conv.message_count }} 条消息</div>
+              <span class="conv-delete" @click.stop>
+                <el-button text type="danger" size="small" @click="handleDeleteConv(conv.id)">
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </span>
+            </div>
+            <el-empty v-if="agentStore.conversations.length === 0" description="暂无对话" :image-size="48" />
+          </div>
         </div>
-        <el-empty v-if="!chatStore.loading && chatStore.conversations.length === 0" description="暂无对话" />
+        <el-empty v-if="!agentStore.loading && agentStore.agents.length === 0" description="暂无智能体，点击上方按钮创建" />
       </div>
     </div>
+
+    <!-- Main chat area -->
     <div class="chat-main">
       <div v-if="!chatStore.currentConversation" class="chat-placeholder">
-        <el-empty description="选择或创建一个对话开始" />
+        <div v-if="!agentStore.currentAgent">
+          <el-empty description="选择或创建一个智能体开始" />
+        </div>
+        <div v-else>
+          <div class="agent-welcome">
+            <el-avatar :size="64" :src="agentStore.currentAgent.avatar">
+              {{ agentStore.currentAgent.name.charAt(0) }}
+            </el-avatar>
+            <h3>{{ agentStore.currentAgent.name }}</h3>
+            <p v-if="agentStore.currentAgent.description">{{ agentStore.currentAgent.description }}</p>
+            <el-button type="primary" @click="handleCreateConv">开始新对话</el-button>
+          </div>
+        </div>
       </div>
       <template v-else>
         <div class="chat-header">
-          <span class="chat-header-title">{{ chatStore.currentConversation.title }}</span>
+          <div class="chat-header-left">
+            <span class="chat-header-agent">{{ agentStore.currentAgent?.name || '智能体' }}</span>
+            <el-icon><ArrowRight /></el-icon>
+            <span class="chat-header-title">{{ chatStore.currentConversation.title }}</span>
+          </div>
+          <div class="chat-header-right">
+            <el-button
+              v-if="agentStore.currentAgent"
+              text
+              size="small"
+              @click="openAgentConfig(agentStore.currentAgent)"
+            >
+              <el-icon><Setting /></el-icon>
+              智能体设置
+            </el-button>
+          </div>
         </div>
         <div class="chat-messages" ref="msgContainer">
           <div
@@ -53,7 +117,7 @@
               <el-avatar v-else :icon="ChatDotRound" size="small" style="background-color: #409eff" />
             </div>
             <div class="message-content">
-              <div class="message-role">{{ msg.role === 'user' ? '我' : 'AI助手' }}</div>
+              <div class="message-role">{{ msg.role === 'user' ? '我' : agentStore.currentAgent?.name || 'AI助手' }}</div>
               <div
                 class="message-text"
                 :class="{ 'is-streaming': msg.role === 'assistant' && chatStore.sending && idx === (msgs.length - 1) }"
@@ -120,21 +184,46 @@
       </template>
     </div>
 
-    <!-- New chat naming dialog -->
-    <el-dialog v-model="showNewChatDialog" title="新建对话" width="420px">
-      <el-form label-width="80px">
-        <el-form-item label="对话名称">
-          <el-input
-            v-model="newChatName"
-            :placeholder="defaultChatName"
-            @keydown.enter="handleCreateChat"
-          />
+    <!-- Agent config / create dialog -->
+    <el-dialog
+      v-model="showAgentDialog"
+      :title="editingAgent ? '编辑智能体' : '新建智能体'"
+      width="560px"
+      destroy-on-close
+    >
+      <el-form label-width="90px" :model="agentForm" class="agent-form">
+        <el-form-item label="名称">
+          <el-input v-model="agentForm.name" placeholder="智能体名称" />
         </el-form-item>
-        <div class="dialog-hint">留空则使用默认名称：{{ defaultChatName }}</div>
+        <el-form-item label="描述">
+          <el-input v-model="agentForm.description" type="textarea" :rows="2" placeholder="描述智能体的功能" />
+        </el-form-item>
+        <el-form-item label="头像URL">
+          <el-input v-model="agentForm.avatar" placeholder="可选，头像图片链接" />
+        </el-form-item>
+        <el-form-item label="系统提示词">
+          <el-input v-model="agentForm.system_prompt" type="textarea" :rows="4" placeholder="定义智能体的行为、角色和能力" />
+        </el-form-item>
+        <el-form-item label="默认模型">
+          <el-select v-model="agentForm.modelSelect" placeholder="选择模型" style="width: 100%">
+            <el-option-group
+              v-for="p in configuredProviders"
+              :key="p.key"
+              :label="p.name"
+            >
+              <el-option
+                v-for="m in p.models"
+                :key="`${p.key}:${m.name}`"
+                :label="`${p.name} - ${m.name}`"
+                :value="`${p.key}:${m.name}`"
+              />
+            </el-option-group>
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showNewChatDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateChat">创建</el-button>
+        <el-button @click="showAgentDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveAgent">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -143,13 +232,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { ElMessageBox } from "element-plus";
-import { Plus, Delete, Promotion, UserFilled, ChatDotRound } from "@element-plus/icons-vue";
+import { Plus, Delete, Promotion, UserFilled, ChatDotRound, Setting, ArrowRight } from "@element-plus/icons-vue";
 import { useChatStore } from "@/stores/chat";
+import { useAgentStore } from "@/stores/agent";
 import { listModels } from "@/api/models";
 import { marked } from "marked";
-import type { ProviderInfo } from "@/types";
+import type { Agent, ProviderInfo } from "@/types";
 
 const chatStore = useChatStore();
+const agentStore = useAgentStore();
 const inputText = ref("");
 const msgContainer = ref<HTMLElement>();
 
@@ -172,13 +263,18 @@ const configuredProviders = computed<ProviderWithKey[]>(() => {
   return result;
 });
 
-// New chat dialog
-const showNewChatDialog = ref(false);
-const newChatName = ref("");
-
-const defaultChatName = computed(() => {
-  return new Date().toLocaleString("zh-CN", { hour12: false }) + " 对话";
+// Agent dialog
+const showAgentDialog = ref(false);
+const editingAgent = ref<Agent | null>(null);
+const agentForm = ref({
+  name: "",
+  description: "",
+  avatar: "",
+  system_prompt: "",
+  modelSelect: "",
 });
+
+const defaultAgentName = computed(() => "新的智能体");
 
 // Current messages (safe accessor for template)
 const msgs = computed(() => chatStore.currentConversation?.messages || []);
@@ -225,7 +321,7 @@ watch(
 );
 
 onMounted(() => {
-  chatStore.fetchConversations();
+  agentStore.fetchAgents();
   loadModels();
 });
 
@@ -247,29 +343,110 @@ function renderMarkdown(text: string): string {
   }
 }
 
-async function handleCreateChat() {
-  const name = newChatName.value.trim() || defaultChatName.value;
-  // Use first configured provider/model by default if no model selected
+// === Agent actions ===
+async function handleCreateAgent() {
+  editingAgent.value = null;
+  agentForm.value = {
+    name: "",
+    description: "",
+    avatar: "",
+    system_prompt: "",
+    modelSelect: "",
+  };
+  showAgentDialog.value = true;
+}
+
+function openAgentConfig(agent: Agent) {
+  editingAgent.value = agent;
+  agentForm.value = {
+    name: agent.name,
+    description: agent.description || "",
+    avatar: agent.avatar || "",
+    system_prompt: agent.system_prompt || "",
+    modelSelect: agent.provider ? `${agent.provider}:${agent.model_name}` : "",
+  };
+  showAgentDialog.value = true;
+}
+
+async function handleSaveAgent() {
+  const { name, description, avatar, system_prompt, modelSelect } = agentForm.value;
+  const agentName = name.trim() || defaultAgentName.value;
   let provider = "";
   let modelName = "";
-  if (configuredProviders.value.length > 0) {
-    const first = configuredProviders.value[0];
-    provider = first.key;
-    modelName = first.models[0]?.name || "";
+  if (modelSelect) {
+    const [p, m] = modelSelect.split(":");
+    provider = p;
+    modelName = m;
   }
 
-  const conv = await chatStore.createConversation({
-    title: name,
-    model_name: modelName,
-    provider,
-  });
-  if (conv) {
-    showNewChatDialog.value = false;
-    newChatName.value = "";
-    // Trigger model sync
-    if (provider && modelName) {
-      currentModel.value = `${provider}:${modelName}`;
+  if (editingAgent.value) {
+    await agentStore.updateAgent(editingAgent.value.id, {
+      name: agentName,
+      description: description || undefined,
+      avatar: avatar || undefined,
+      system_prompt: system_prompt || undefined,
+      model_name: modelName,
+      provider,
+    });
+  } else {
+    const agent = await agentStore.createAgent({
+      name: agentName,
+      description: description || undefined,
+      avatar: avatar || undefined,
+      system_prompt: system_prompt || undefined,
+      model_name: modelName,
+      provider,
+    });
+    if (agent) {
+      await agentStore.selectAgent(agent.id);
     }
+  }
+  showAgentDialog.value = false;
+}
+
+async function handleSelectAgent(id: string) {
+  chatStore.currentConversation = null;
+  await agentStore.selectAgent(id);
+}
+
+async function handleDeleteAgent(id: string) {
+  try {
+    await ElMessageBox.confirm("确定删除该智能体及其所有对话？", "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+    await agentStore.deleteAgent(id);
+    if (agentStore.currentAgent?.id !== id) {
+      chatStore.currentConversation = null;
+    }
+  } catch {
+    // cancelled
+  }
+}
+
+// === Conversation actions ===
+async function handleCreateConv() {
+  const conv = await agentStore.createConversation();
+  if (conv) {
+    chatStore.currentConversation = conv;
+  }
+}
+
+function handleSelectConv(id: string) {
+  chatStore.selectConversation(id);
+}
+
+async function handleDeleteConv(id: string) {
+  try {
+    await ElMessageBox.confirm("确定删除该对话？", "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+    await chatStore.deleteConversation(id);
+  } catch {
+    // cancelled
   }
 }
 
@@ -288,19 +465,6 @@ async function handleSend() {
   inputText.value = "";
   await chatStore.sendMessage(text);
 }
-
-async function handleDelete(id: string) {
-  try {
-    await ElMessageBox.confirm("确定删除该对话？", "提示", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
-    });
-    await chatStore.deleteConversation(id);
-  } catch {
-    // cancelled
-  }
-}
 </script>
 
 <style scoped>
@@ -312,8 +476,9 @@ async function handleDelete(id: string) {
   overflow: hidden;
 }
 
+/* === Sidebar === */
 .chat-sidebar {
-  width: 280px;
+  width: 320px;
   border-right: 1px solid #e4e7ed;
   display: flex;
   flex-direction: column;
@@ -324,18 +489,95 @@ async function handleDelete(id: string) {
   border-bottom: 1px solid #e4e7ed;
 }
 
-.conversation-list {
+.sidebar-header .el-button {
+  width: 100%;
+}
+
+.sidebar-body {
   flex: 1;
   overflow-y: auto;
-  padding: 4px;
+}
+
+/* Agent items */
+.agent-group {
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.agent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.agent-item:hover {
+  background: #f0f2f5;
+}
+
+.agent-group.expanded .agent-item {
+  background: #ecf5ff;
+}
+
+.agent-avatar {
+  flex-shrink: 0;
+}
+
+.agent-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-name {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-meta {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-actions {
+  flex-shrink: 0;
+  opacity: 0;
+  display: flex;
+  gap: 2px;
+}
+
+.agent-item:hover .agent-actions {
+  opacity: 1;
+}
+
+/* Conversation sublist */
+.conv-sublist {
+  background: #fafbfc;
+  padding: 0 0 8px 0;
+}
+
+.conv-sublist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px 6px 44px;
+  font-size: 12px;
+  color: #909399;
 }
 
 .conv-item {
-  padding: 10px 12px;
-  border-radius: 6px;
+  padding: 8px 12px 8px 44px;
   cursor: pointer;
   position: relative;
-  margin-bottom: 2px;
+  font-size: 13px;
+  transition: background 0.15s;
 }
 
 .conv-item:hover {
@@ -343,24 +585,22 @@ async function handleDelete(id: string) {
 }
 
 .conv-item.active {
-  background: #ecf5ff;
+  background: #d9ecff;
 }
 
 .conv-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-right: 24px;
+  padding-right: 28px;
 }
 
 .conv-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: #909399;
-  margin-top: 4px;
-  display: flex;
-  gap: 12px;
+  margin-top: 2px;
 }
 
 .conv-delete {
@@ -368,17 +608,19 @@ async function handleDelete(id: string) {
   right: 4px;
   top: 50%;
   transform: translateY(-50%);
-  opacity: 0.45;
+  opacity: 0;
 }
 
 .conv-item:hover .conv-delete {
   opacity: 1;
 }
 
+/* === Main Chat === */
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .chat-placeholder {
@@ -388,17 +630,47 @@ async function handleDelete(id: string) {
   justify-content: center;
 }
 
+.agent-welcome {
+  text-align: center;
+}
+
+.agent-welcome h3 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+}
+
+.agent-welcome p {
+  color: #909399;
+  margin-bottom: 20px;
+  max-width: 400px;
+}
+
 .chat-header {
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid #e4e7ed;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.chat-header-agent {
+  color: #409eff;
+  font-weight: 500;
 }
 
 .chat-header-title {
-  font-size: 15px;
-  font-weight: 600;
+  color: #303133;
+}
+
+.chat-header-right {
+  flex-shrink: 0;
 }
 
 .chat-messages {
@@ -491,6 +763,7 @@ async function handleDelete(id: string) {
   text-decoration: underline;
 }
 
+/* === Chat Input === */
 .chat-input {
   padding: 12px 16px;
   border-top: 1px solid #e4e7ed;
@@ -524,9 +797,8 @@ async function handleDelete(id: string) {
   margin-left: auto;
 }
 
-.dialog-hint {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
+/* Agent form - prevent label wrapping */
+.agent-form :deep(.el-form-item__label) {
+  white-space: nowrap;
 }
 </style>

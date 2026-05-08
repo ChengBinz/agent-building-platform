@@ -11,8 +11,47 @@ export interface User {
   updated_at?: string;
 }
 
+export interface Agent {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  system_prompt?: string;
+  model_name: string;
+  provider: string;
+  tools?: string[];
+  kb_ids?: string[];
+  conversation_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentCreate {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  system_prompt?: string;
+  model_name?: string;
+  provider?: string;
+  tools?: string[];
+  kb_ids?: string[];
+}
+
+export interface AgentUpdate {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  system_prompt?: string;
+  model_name?: string;
+  provider?: string;
+  tools?: string[];
+  kb_ids?: string[];
+}
+
 export interface Conversation {
   id: string;
+  agent_id?: string;
   title: string;
   model_name: string;
   provider: string;

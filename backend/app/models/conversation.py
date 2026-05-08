@@ -13,6 +13,9 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(255), default="新的对话", nullable=False)
     model_name: Mapped[str] = mapped_column(String(128), default="gpt-4o-mini", nullable=False)
     provider: Mapped[str] = mapped_column(String(32), default="", nullable=False)
@@ -22,6 +25,7 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     total_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="conversations")
+    agent: Mapped["Agent | None"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
         back_populates="conversation", lazy="selectin", order_by="Message.created_at",
         cascade="all, delete-orphan"

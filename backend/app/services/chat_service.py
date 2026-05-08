@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.engine.registry import get_provider
+from app.models.agent import Agent
 from app.models.api_key import ApiKey
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -23,23 +24,45 @@ class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list_conversations(self, user_id: uuid.UUID) -> list[Conversation]:
-        result = await self.db.execute(
+    async def list_conversations(self, user_id: uuid.UUID, agent_id: uuid.UUID | None = None) -> list[Conversation]:
+        stmt = (
             select(Conversation)
             .where(Conversation.user_id == user_id)
             .order_by(Conversation.updated_at.desc())
         )
+        if agent_id:
+            stmt = stmt.where(Conversation.agent_id == agent_id)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def create_conversation(
         self, user_id: uuid.UUID, data: ConversationCreate
     ) -> Conversation:
+        model_name = data.model_name
+        provider = data.provider
+        system_prompt = data.system_prompt
+        kb_ids = None
+
+        if data.agent_id:
+            result = await self.db.execute(
+                select(Agent).where(Agent.id == data.agent_id, Agent.user_id == user_id)
+            )
+            agent = result.scalar_one_or_none()
+            if agent is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="智能体不存在")
+            model_name = model_name or agent.model_name
+            provider = provider or agent.provider
+            system_prompt = system_prompt or agent.system_prompt
+            kb_ids = agent.kb_ids
+
         conv = Conversation(
             user_id=user_id,
+            agent_id=data.agent_id,
             title=data.title,
-            model_name=data.model_name,
-            provider=data.provider,
-            system_prompt=data.system_prompt,
+            model_name=model_name,
+            provider=provider,
+            system_prompt=system_prompt,
+            kb_ids=kb_ids,
         )
         self.db.add(conv)
         await self.db.flush()
