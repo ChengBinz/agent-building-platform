@@ -1,0 +1,17 @@
+* text=auto
+
+# Python files
+*.py text eol=lf
+
+# Template files
+*.mako text eol=lf
+
+# Config files
+*.ini text eol=lf
+*.yml text eol=lf
+*.txt text eol=lf
+
+# Frontend
+*.ts text eol=lf
+*.vue text eol=lf
+*.json text eol=lf

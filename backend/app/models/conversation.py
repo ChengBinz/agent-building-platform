@@ -15,6 +15,7 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(255), default="新的对话", nullable=False)
     model_name: Mapped[str] = mapped_column(String(128), default="gpt-4o-mini", nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), default="", nullable=False)
     system_prompt: Mapped[str | None] = mapped_column(Text)
     kb_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(UUID(as_uuid=True)), default=[])
     message_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -22,5 +23,6 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
 
     user: Mapped["User"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
-        back_populates="conversation", lazy="selectin", order_by="Message.created_at"
+        back_populates="conversation", lazy="selectin", order_by="Message.created_at",
+        cascade="all, delete-orphan"
     )

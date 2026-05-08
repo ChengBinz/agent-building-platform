@@ -27,21 +27,24 @@ cp .env.example .env
 # 2. 编辑 .env 填入必要的配置（SECRET_KEY 必填）
 vim .env
 
-# 3. 启动所有服务
-docker compose up -d
+# 3. 构建并启动所有服务
+docker compose up -d --build
 
-# 4. 访问
-# http://localhost
+# 4. 初始化管理员账号
+docker compose exec backend python /app/scripts/seed.py
+
+# 5. 访问 http://localhost 登录
 ```
 
 ### 开发模式
 
 ```bash
 # 启动开发模式（热重载）
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
-# 前端开发服务器: http://localhost:5173
+# 前端开发服务器 (Vite HMR): http://localhost:5173
 # 后端 API: http://localhost:8000
+# 生产模式 (Nginx): http://localhost:80
 ```
 
 ### 默认管理员
@@ -51,6 +54,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```bash
 docker compose exec backend python /app/scripts/seed.py
 ```
+
+默认管理员账号：
+- 用户名: `admin`
+- 密码: `admin123`
+- 首次登录后请立即修改密码
 
 ## 项目结构
 

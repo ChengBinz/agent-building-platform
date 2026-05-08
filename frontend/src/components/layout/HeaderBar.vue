@@ -4,15 +4,17 @@
       <el-icon><Fold /></el-icon>
     </el-button>
     <div class="spacer"></div>
-    <el-dropdown>
+    <el-dropdown @command="handleCommand">
       <span class="user-info">
         <el-icon><UserFilled /></el-icon>
-        <span>管理员</span>
+        <span>{{ auth.user?.display_name || auth.user?.username || '用户' }}</span>
+        <el-tag v-if="auth.isAdmin" size="small" type="danger" style="margin-left: 6px;">管理员</el-tag>
+        <el-tag v-else size="small" type="info" style="margin-left: 6px;">用户</el-tag>
       </span>
       <template #dropdown>
         <el-dropdown-menu>
           <el-dropdown-item>个人信息</el-dropdown-item>
-          <el-dropdown-item divided>退出登录</el-dropdown-item>
+          <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
@@ -20,9 +22,21 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import { useAppStore } from "@/stores/app";
+import { useAuthStore } from "@/stores/auth";
+import { Fold, UserFilled } from "@element-plus/icons-vue";
 
+const router = useRouter();
 const appStore = useAppStore();
+const auth = useAuthStore();
+
+function handleCommand(cmd: string) {
+  if (cmd === "logout") {
+    auth.logout();
+    router.push("/login");
+  }
+}
 </script>
 
 <style scoped>

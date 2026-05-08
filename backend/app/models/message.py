@@ -4,10 +4,10 @@ from sqlalchemy import String, Integer, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
-from app.models.base import Base, UUIDMixin
+from app.models.base import Base, UUIDMixin, TimestampMixin
 
 
-class Message(Base, UUIDMixin):
+class Message(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "messages"
 
     conversation_id: Mapped[uuid.UUID] = mapped_column(
@@ -17,6 +17,6 @@ class Message(Base, UUIDMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tool_calls: Mapped[dict | None] = mapped_column(JSONB)  # [{name, args, result}]
     token_count: Mapped[int | None] = mapped_column(Integer)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, default={})
+    extra: Mapped[dict | None] = mapped_column(JSONB, default={})
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")

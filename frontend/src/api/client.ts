@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearTokens } from "@/utils/storage";
 
 const apiClient = axios.create({
   baseURL: "/api/v1",
@@ -20,7 +21,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("access_token");
+      clearTokens();
       window.location.href = "/login";
     }
     return Promise.reject(error);
