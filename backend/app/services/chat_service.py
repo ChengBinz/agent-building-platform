@@ -1,6 +1,7 @@
 """Conversation CRUD and message handling with real LLM calls."""
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 
 from fastapi import HTTPException, status
@@ -138,10 +139,13 @@ class ChatService:
         conv = await self.get_conversation(user_id, conversation_id)
 
         # Save user message
+        now = datetime.now(timezone.utc)
         user_msg = Message(
             conversation_id=conv.id,
             role="user",
             content=data.content,
+            created_at=now,
+            updated_at=now,
         )
         self.db.add(user_msg)
         await self.db.flush()
@@ -161,11 +165,14 @@ class ChatService:
             full_response = "(模型返回了空回复)"
 
         # Save assistant reply
+        now2 = datetime.now(timezone.utc)
         assistant_msg = Message(
             conversation_id=conv.id,
             role="assistant",
             content=full_response,
             token_count=len(full_response) // 2,
+            created_at=now2,
+            updated_at=now2,
         )
         self.db.add(assistant_msg)
 
@@ -197,10 +204,13 @@ class ChatService:
         conv = await self.get_conversation(user_id, conversation_id)
 
         # Save user message
+        now = datetime.now(timezone.utc)
         user_msg = Message(
             conversation_id=conv.id,
             role="user",
             content=data.content,
+            created_at=now,
+            updated_at=now,
         )
         self.db.add(user_msg)
         await self.db.flush()
@@ -226,11 +236,14 @@ class ChatService:
             full_response = "(模型返回了空回复)"
 
         # Save assistant reply
+        now2 = datetime.now(timezone.utc)
         assistant_msg = Message(
             conversation_id=conv.id,
             role="assistant",
             content=full_response,
             token_count=len(full_response) // 2,
+            created_at=now2,
+            updated_at=now2,
         )
         self.db.add(assistant_msg)
 
