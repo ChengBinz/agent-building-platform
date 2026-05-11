@@ -313,7 +313,7 @@ class ChatService:
             # Group KBs by (api_key, base_url, model)
             groups: dict[tuple, list] = {}
             for kb in kbs:
-                key = kb.embedding_api_key or global_key or settings.EMBEDDING_API_KEY
+                key = kb.embedding_api_key or global_key
                 url = kb.embedding_base_url or global_url or settings.EMBEDDING_BASE_URL
                 model = kb.embedding_model or settings.DEFAULT_EMBEDDING_MODEL
                 if not key or key == "xxx":
