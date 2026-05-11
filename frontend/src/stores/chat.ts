@@ -171,11 +171,16 @@ export const useChatStore = defineStore("chat", () => {
           messages[assistantMsgIndex].content += token;
         }
       },
-      () => {
-        // onDone
-        conv.message_count += 2;
-        sending.value = false;
+      async () => {
+        // onDone — reload conversation from backend first, then clear sending flag
         streamController = null;
+        try {
+          const { data } = await chatApi.getConversation(conv.id);
+          currentConversation.value = data;
+          const idx = conversations.value.findIndex((c) => c.id === conv.id);
+          if (idx !== -1) conversations.value[idx] = data;
+        } catch { /* ignore */ }
+        sending.value = false;
       },
       (err: string) => {
         // onError

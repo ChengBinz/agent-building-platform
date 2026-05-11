@@ -13,6 +13,7 @@ from app.models.knowledge_base import KnowledgeBase
 from app.rag.chunker import chunk_text
 from app.rag.embedder import embed_texts, get_embedding_client
 from app.rag.loader import load_text
+from app.rag.preprocessor import preprocess_text, filter_chunks
 from app.rag.vector_store import (
     delete_collection,
     delete_points_by_ids,
@@ -48,7 +49,11 @@ async def ingest_document(
                 await db.commit()
                 return
 
+            text = preprocess_text(text)
+
             chunks = chunk_text(text)
+            chunks = filter_chunks(chunks)
+            logger.info(f"Document {document_id}: preprocessed, {len(chunks)} chunks after filtering")
             if not chunks:
                 doc.status = "failed"
                 doc.error_message = "分块后无有效内容"
