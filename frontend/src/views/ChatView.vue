@@ -38,9 +38,7 @@ import { ElMessageBox } from "element-plus";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agent";
 import { listLLMModels } from "@/api/models";
-import { listKnowledgeBases } from "@/api/knowledge";
-import { marked } from "marked";
-import type { Agent, LLMModel, KnowledgeBase } from "@/types";
+import type { Agent, LLMModel } from "@/types";
 
 const chatStore = useChatStore();
 const agentStore = useAgentStore();
@@ -113,16 +111,7 @@ onMounted(async () => {
   } catch {
     // ignore
   }
-}
-
-function renderMarkdown(text: string): string {
-  if (!text) return "";
-  try {
-    return marked.parse(text) as string;
-  } catch {
-    return text;
-  }
-}
+});
 
 // === Agent actions ===
 function handleCreateAgent() {

@@ -107,6 +107,12 @@ export interface ProviderInfo {
   models: ModelConfig[];
 }
 
+export interface ProviderWithKey {
+  name: string;
+  key: string;
+  models: { name: string; provider: string }[];
+}
+
 // ── New RAGFlow-style model catalog ──
 
 export interface FactoryModelInfo {
