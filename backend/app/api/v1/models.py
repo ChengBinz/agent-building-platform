@@ -65,10 +65,9 @@ _PROVIDER_DEFS = [
     {
         "name": "Embedding",
         "key": "embedding",
-        "env_key": settings.OPENAI_API_KEY,
+        "env_key": settings.EMBEDDING_API_KEY,
         "models": [
-            ModelConfig(name="text-embedding-3-small", provider="openai", available=True),
-            ModelConfig(name="text-embedding-3-large", provider="openai", available=True),
+            ModelConfig(name="text-embedding-v4", provider="dashscope", available=True),
         ],
     },
 ]

@@ -1,4 +1,5 @@
 """Conversation CRUD and message handling with real LLM calls."""
+import logging
 import uuid
 from typing import AsyncGenerator
 
@@ -7,7 +8,9 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.engine.registry import get_provider
+from app.models.agent import Agent
 from app.models.api_key import ApiKey
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -18,28 +21,52 @@ from app.schemas.chat import (
     SendMessageResponse,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list_conversations(self, user_id: uuid.UUID) -> list[Conversation]:
-        result = await self.db.execute(
+    async def list_conversations(self, user_id: uuid.UUID, agent_id: uuid.UUID | None = None) -> list[Conversation]:
+        stmt = (
             select(Conversation)
             .where(Conversation.user_id == user_id)
             .order_by(Conversation.updated_at.desc())
         )
+        if agent_id:
+            stmt = stmt.where(Conversation.agent_id == agent_id)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def create_conversation(
         self, user_id: uuid.UUID, data: ConversationCreate
     ) -> Conversation:
+        model_name = data.model_name
+        provider = data.provider
+        system_prompt = data.system_prompt
+        kb_ids = None
+
+        if data.agent_id:
+            result = await self.db.execute(
+                select(Agent).where(Agent.id == data.agent_id, Agent.user_id == user_id)
+            )
+            agent = result.scalar_one_or_none()
+            if agent is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="智能体不存在")
+            model_name = model_name or agent.model_name
+            provider = provider or agent.provider
+            system_prompt = system_prompt or agent.system_prompt
+            kb_ids = agent.kb_ids
+
         conv = Conversation(
             user_id=user_id,
+            agent_id=data.agent_id,
             title=data.title,
-            model_name=data.model_name,
-            provider=data.provider,
-            system_prompt=data.system_prompt,
+            model_name=model_name,
+            provider=provider,
+            system_prompt=system_prompt,
+            kb_ids=kb_ids,
         )
         self.db.add(conv)
         await self.db.flush()
@@ -229,12 +256,17 @@ class ChatService:
         yield "data: [DONE]\n\n"
 
     async def _build_messages(self, conv: Conversation, current_content: str) -> list[dict]:
-        """Build LLM message list: system prompt + history + current user message."""
+        """Build LLM message list: system prompt + RAG context + history."""
         messages: list[dict] = []
         if conv.system_prompt:
             messages.append({"role": "system", "content": conv.system_prompt})
 
-        # Load previous messages (already saved, excluding the one we just added)
+        # RAG context injection
+        if conv.kb_ids:
+            rag_context = await self._retrieve_rag_context(conv, current_content)
+            if rag_context:
+                messages.append({"role": "system", "content": rag_context})
+
         result = await self.db.execute(
             select(Message)
             .where(Message.conversation_id == conv.id)
@@ -244,3 +276,91 @@ class ChatService:
             messages.append({"role": msg.role, "content": msg.content})
 
         return messages
+
+    async def _retrieve_rag_context(self, conv: Conversation, query: str) -> str | None:
+        """Retrieve relevant chunks from KBs and format as context string."""
+        if not conv.kb_ids:
+            return None
+
+        try:
+            from app.models.knowledge_base import KnowledgeBase
+            from app.rag.embedder import get_embedding_client, embed_query
+            from app.rag.vector_store import collection_name, get_qdrant_client, search
+
+            # Load all KBs and group by embedding config
+            kb_result = await self.db.execute(
+                select(KnowledgeBase).where(KnowledgeBase.id.in_(conv.kb_ids))
+            )
+            kbs = kb_result.scalars().all()
+            if not kbs:
+                return None
+
+            # Fallback: get global embedding provider key
+            global_key = None
+            global_url = None
+            result = await self.db.execute(
+                select(ApiKey).where(
+                    ApiKey.user_id == conv.user_id,
+                    ApiKey.provider == "embedding",
+                    ApiKey.is_active == True,
+                )
+            )
+            api_key_obj = result.scalar_one_or_none()
+            if api_key_obj and api_key_obj.api_key:
+                global_key = api_key_obj.api_key
+                global_url = api_key_obj.base_url
+
+            # Group KBs by (api_key, base_url, model)
+            groups: dict[tuple, list] = {}
+            for kb in kbs:
+                key = kb.embedding_api_key or global_key or settings.EMBEDDING_API_KEY
+                url = kb.embedding_base_url or global_url or settings.EMBEDDING_BASE_URL
+                model = kb.embedding_model or settings.DEFAULT_EMBEDDING_MODEL
+                if not key or key == "xxx":
+                    continue
+                group_key = (key, url or "", model)
+                groups.setdefault(group_key, []).append(kb)
+
+            if not groups:
+                return None
+
+            qdrant = get_qdrant_client()
+            all_chunks: list[dict] = []
+
+            for (key, url, model), kb_group in groups.items():
+                client = await get_embedding_client(key, url or None)
+                query_vector = await embed_query(client, query, model=model)
+
+                for kb in kb_group:
+                    col = collection_name(kb.id)
+                    try:
+                        results = search(qdrant, col, query_vector)
+                        for r in results:
+                            r["kb_id"] = str(kb.id)
+                        all_chunks.extend(results)
+                    except Exception:
+                        continue
+
+            if not all_chunks:
+                return None
+
+            all_chunks.sort(key=lambda x: x.get("score", 0), reverse=True)
+            chunks = all_chunks[: settings.RETRIEVAL_TOP_K]
+
+            if not chunks:
+                return None
+
+            context_parts = []
+            for i, chunk in enumerate(chunks, 1):
+                source = chunk.get("filename", "unknown")
+                text = chunk.get("text", "")
+                context_parts.append(f"[{i}] (来源: {source})\n{text}")
+
+            return (
+                "以下是与用户问题相关的知识库内容，请基于这些内容回答问题：\n\n"
+                + "\n\n".join(context_parts)
+            )
+
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed: {e}")
+            return None

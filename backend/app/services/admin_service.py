@@ -4,6 +4,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from app.models.user import User
 from app.models.conversation import Conversation
@@ -27,7 +28,11 @@ class AdminService:
         return {"items": users, "total": total, "page": page, "page_size": page_size}
 
     async def get_user(self, user_id: uuid.UUID) -> User:
-        result = await self.db.execute(select(User).where(User.id == user_id))
+        result = await self.db.execute(
+            select(User)
+            .options(noload(User.conversations), noload(User.agents), noload(User.api_keys))
+            .where(User.id == user_id)
+        )
         user = result.scalar_one_or_none()
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")

@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,6 +12,7 @@ from app.models.base import Base
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    os.makedirs("/app/data/uploads", exist_ok=True)
     # Startup: create tables if not exist (dev convenience; production uses Alembic)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

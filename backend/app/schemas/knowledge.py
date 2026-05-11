@@ -8,12 +8,17 @@ from pydantic import BaseModel
 class KnowledgeBaseCreate(BaseModel):
     name: str
     description: str | None = None
-    embedding_model: str = "text-embedding-3-small"
+    embedding_model: str = "text-embedding-v4"
+    embedding_api_key: str | None = None
+    embedding_base_url: str | None = None
 
 
 class KnowledgeBaseUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    embedding_model: str | None = None
+    embedding_api_key: str | None = None
+    embedding_base_url: str | None = None
 
 
 class DocumentOut(BaseModel):
@@ -33,6 +38,8 @@ class KnowledgeBaseOut(BaseModel):
     name: str
     description: str | None = None
     embedding_model: str
+    embedding_api_key_masked: str | None = None
+    embedding_base_url: str | None = None
     chunk_count: int
     created_at: datetime
     updated_at: datetime
@@ -50,5 +57,15 @@ class KnowledgeBaseListItem(BaseModel):
     document_count: int
     created_at: datetime
     updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DocumentUpload(BaseModel):
+    id: UUID
+    filename: str
+    file_type: str
+    file_size: int
+    status: str = "pending"
 
     model_config = {"from_attributes": True}

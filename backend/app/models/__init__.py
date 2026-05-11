@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.user import User, Role, UserRole
 from app.models.api_key import ApiKey
+from app.models.agent import Agent
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.knowledge_base import KnowledgeBase
@@ -11,6 +12,7 @@ __all__ = [
     "Base",
     "User", "Role", "UserRole",
     "ApiKey",
+    "Agent",
     "Conversation",
     "Message",
     "KnowledgeBase",

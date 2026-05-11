@@ -1,7 +1,8 @@
 import apiClient from "./client";
 
-export async function listConversations() {
-  return apiClient.get("/conversations");
+export async function listConversations(agentId?: string) {
+  const params = agentId ? { agent_id: agentId } : {};
+  return apiClient.get("/conversations", { params });
 }
 
 export async function createConversation(data: {
@@ -9,6 +10,7 @@ export async function createConversation(data: {
   model_name?: string;
   provider?: string;
   system_prompt?: string;
+  agent_id?: string;
 }) {
   return apiClient.post("/conversations", data);
 }

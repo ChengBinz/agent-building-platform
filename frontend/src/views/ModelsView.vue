@@ -39,7 +39,6 @@
                 :disabled="!!savedKeys[providerKey(provider.name)]"
               />
               <el-input
-                v-if="providerKey(provider.name) !== 'embedding'"
                 v-model="keyForms[providerKey(provider.name)].base_url"
                 placeholder="Base URL (可选)"
                 size="small"

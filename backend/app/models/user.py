@@ -25,8 +25,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     roles: Mapped[list["Role"]] = relationship(secondary=user_roles, lazy="selectin")
-    api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user", lazy="selectin")
-    conversations: Mapped[list["Conversation"]] = relationship(back_populates="user", lazy="selectin")
+    api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
+    conversations: Mapped[list["Conversation"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
+    agents: Mapped[list["Agent"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
 
 
 class Role(Base, UUIDMixin, TimestampMixin):

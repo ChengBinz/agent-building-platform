@@ -23,11 +23,12 @@ router = APIRouter()
 
 @router.get("/conversations", response_model=list[ConversationListItem])
 async def list_conversations(
+    agent_id: uuid.UUID | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = ChatService(db)
-    return await service.list_conversations(current_user.id)
+    return await service.list_conversations(current_user.id, agent_id=agent_id)
 
 
 @router.post("/conversations", response_model=ConversationOut, status_code=201)

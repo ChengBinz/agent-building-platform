@@ -7,15 +7,17 @@ from pydantic import BaseModel
 
 class ConversationCreate(BaseModel):
     title: str = "新的对话"
-    model_name: str = "gpt-4o-mini"
-    provider: str = ""
+    model_name: str = "deepseek-v4-flash"
+    provider: str = "deepseek"
     system_prompt: str | None = None
+    agent_id: UUID | None = None
 
 
 class ConversationUpdate(BaseModel):
     title: str | None = None
     model_name: str | None = None
     provider: str | None = None
+    agent_id: UUID | None = None
 
 
 class MessageOut(BaseModel):
@@ -31,6 +33,7 @@ class MessageOut(BaseModel):
 
 class ConversationOut(BaseModel):
     id: UUID
+    agent_id: UUID | None = None
     title: str
     model_name: str
     provider: str = ""
@@ -45,6 +48,7 @@ class ConversationOut(BaseModel):
 
 class ConversationListItem(BaseModel):
     id: UUID
+    agent_id: UUID | None = None
     title: str
     model_name: str
     provider: str = ""
