@@ -38,8 +38,9 @@
           <div class="message-content">
             <div class="message-role">{{ msg.role === 'user' ? '我' : currentAgent?.name || 'AI助手' }}</div>
             <div
+              :key="sending && idx === messages.length - 1 ? 's-' + msg.content.length : 'd-' + idx"
               class="message-text"
-              :class="{ 'is-streaming': msg.role === 'assistant' && sending && idx === (messages.length - 1) }"
+              :class="{ 'is-streaming': sending && idx === messages.length - 1 }"
               v-html="renderMarkdown(msg.content)"
             ></div>
           </div>
@@ -94,6 +95,8 @@ import { ref, computed, watch, nextTick } from "vue";
 import { Promotion, UserFilled, ChatDotRound, Setting, ArrowRight } from "@element-plus/icons-vue";
 import { marked } from "marked";
 import type { Agent, Conversation, Message, ProviderWithKey } from "@/types";
+
+marked.setOptions({ breaks: true });
 
 const props = defineProps<{
   conversation: Conversation | null;
@@ -321,6 +324,29 @@ function handleSend() {
 .message.user .message-text :deep(a) {
   color: #fff;
   text-decoration: underline;
+}
+
+.message-text :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.message-text :deep(table th),
+.message-text :deep(table td) {
+  border: 1px solid #dcdfe6;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-text :deep(table th) {
+  background: #f5f7fa;
+  font-weight: 600;
+}
+
+.message-text :deep(table tr:nth-child(even)) {
+  background: #fafafa;
 }
 
 .chat-input {
