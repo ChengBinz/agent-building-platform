@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     # Default models
     DEFAULT_LLM_MODEL: str = "deepseek-v4-flash"
     DEFAULT_EMBEDDING_MODEL: str = "text-embedding-v4"
-    EMBEDDING_API_KEY: str = "sk-b4f74249902848df8db60b043f121b40"
+    EMBEDDING_API_KEY: str = ""
     EMBEDDING_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
     # RAG

@@ -65,7 +65,7 @@ async def ingest_document(
 
             embedding_model = kb.embedding_model or settings.DEFAULT_EMBEDDING_MODEL
 
-            # Per-KB API key → global ApiKey → config fallback
+            # Per-KB API key → global ApiKey
             api_key = kb.embedding_api_key
             base_url = kb.embedding_base_url
             if not api_key:
@@ -80,9 +80,6 @@ async def ingest_document(
                 if api_key_obj and api_key_obj.api_key:
                     api_key = api_key_obj.api_key
                     base_url = api_key_obj.base_url
-            if not api_key:
-                api_key = settings.EMBEDDING_API_KEY
-                base_url = base_url or settings.EMBEDDING_BASE_URL
             if not api_key or api_key == "xxx":
                 doc.status = "failed"
                 doc.error_message = "未配置 Embedding API Key，请在知识库设置或模型配置中设置"
