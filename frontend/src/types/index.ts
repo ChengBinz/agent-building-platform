@@ -107,6 +107,10 @@ export interface ProviderInfo {
   models: ModelConfig[];
 }
 
+export interface ProviderWithKey extends ProviderInfo {
+  key: string;
+}
+
 export interface UsageSummary {
   total_conversations: number;
   total_messages: number;
