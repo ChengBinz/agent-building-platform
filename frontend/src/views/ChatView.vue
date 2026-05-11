@@ -38,6 +38,9 @@ import { ElMessageBox } from "element-plus";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agent";
 import { listLLMModels } from "@/api/models";
+import ChatSidebar from "@/components/chat/ChatSidebar.vue";
+import ChatMain from "@/components/chat/ChatMain.vue";
+import AgentDialog from "@/components/chat/AgentDialog.vue";
 import type { Agent, LLMModel } from "@/types";
 
 const chatStore = useChatStore();
