@@ -25,6 +25,32 @@ from app.schemas.chat import (
 logger = logging.getLogger(__name__)
 
 
+# Maps the provider key used in Conversation/Agent (lowercase) to the list of
+# factory names that may store its credentials in the llm_models table.
+_FACTORY_ALIASES: dict[str, list[str]] = {
+    "openai": ["OpenAI", "OpenAI-API-Compatible"],
+    "anthropic": ["Anthropic"],
+    "deepseek": ["DeepSeek"],
+    "dashscope": ["Tongyi-Qianwen"],
+    "tongyi": ["Tongyi-Qianwen"],
+    "zhipu": ["ZHIPU-AI"],
+    "moonshot": ["Moonshot"],
+    "xai": ["xAI"],
+    "gemini": ["Gemini"],
+    "mistral": ["Mistral"],
+    "azure": ["Azure-OpenAI"],
+    "ollama": ["Ollama"],
+    "vllm": ["VLLM"],
+    "siliconflow": ["SILICONFLOW"],
+    "gitee": ["GiteeAI"],
+    "groq": ["Groq"],
+    "openrouter": ["OpenRouter"],
+    "hunyuan": ["Tencent-Hunyuan"],
+    "minimax": ["MiniMax"],
+    "baichuan": ["BaiChuan"],
+}
+
+
 class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -112,12 +138,34 @@ class ChatService:
         await self.db.flush()
 
     async def _get_api_key(self, user_id: uuid.UUID, provider: str) -> tuple[str, str]:
-        """Return (api_key, base_url) for the user + provider."""
+        """Return (api_key, base_url) for the user + provider.
+
+        Lookup order:
+          1. llm_models table (new RAGFlow-style) — match by factory name OR model family
+          2. api_keys table (legacy) — match by provider key
+        """
         if not provider:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="对话未指定模型提供商",
             )
+
+        # 1) new llm_models lookup (factory name match; case-insensitive via aliases)
+        from app.models.llm_model import LLMModel
+
+        factory_aliases = _FACTORY_ALIASES.get(provider.lower(), [provider])
+        result = await self.db.execute(
+            select(LLMModel).where(
+                LLMModel.user_id == user_id,
+                LLMModel.factory.in_(factory_aliases),
+                LLMModel.is_active == True,
+            ).order_by(LLMModel.created_at.desc())
+        )
+        llm = result.scalars().first()
+        if llm and llm.api_key:
+            return llm.api_key, llm.base_url or ""
+
+        # 2) legacy api_keys lookup
         result = await self.db.execute(
             select(ApiKey).where(
                 ApiKey.user_id == user_id,
@@ -129,7 +177,7 @@ class ChatService:
         if not key or not key.api_key:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"请先在模型配置中设置 {provider} 的 API Key",
+                detail=f"请先在模型配置中为 {provider} 添加可用的模型与 API Key",
             )
         return key.api_key, key.base_url or ""
 
@@ -309,19 +357,51 @@ class ChatService:
                 return None
 
             # Fallback: get global embedding provider key
+            # Priority: llm_models (model_type=embedding) > legacy api_keys('embedding')
             global_key = None
             global_url = None
-            result = await self.db.execute(
-                select(ApiKey).where(
-                    ApiKey.user_id == conv.user_id,
-                    ApiKey.provider == "embedding",
-                    ApiKey.is_active == True,
+
+            from app.models.llm_model import LLMModel, DefaultModel
+
+            # Prefer the user's default embedding model
+            dres = await self.db.execute(
+                select(DefaultModel).where(
+                    DefaultModel.user_id == conv.user_id,
+                    DefaultModel.model_type == "embedding",
                 )
             )
-            api_key_obj = result.scalar_one_or_none()
-            if api_key_obj and api_key_obj.api_key:
-                global_key = api_key_obj.api_key
-                global_url = api_key_obj.base_url
+            d = dres.scalar_one_or_none()
+            if d is not None:
+                llm = await self.db.get(LLMModel, d.llm_model_id)
+                if llm and llm.api_key:
+                    global_key = llm.api_key
+                    global_url = llm.base_url
+            if not global_key:
+                # any active embedding model the user has
+                eres = await self.db.execute(
+                    select(LLMModel).where(
+                        LLMModel.user_id == conv.user_id,
+                        LLMModel.model_type == "embedding",
+                        LLMModel.is_active == True,
+                    ).order_by(LLMModel.created_at.desc())
+                )
+                llm = eres.scalars().first()
+                if llm and llm.api_key:
+                    global_key = llm.api_key
+                    global_url = llm.base_url
+            if not global_key:
+                # legacy: api_keys row with provider='embedding'
+                result = await self.db.execute(
+                    select(ApiKey).where(
+                        ApiKey.user_id == conv.user_id,
+                        ApiKey.provider == "embedding",
+                        ApiKey.is_active == True,
+                    )
+                )
+                api_key_obj = result.scalar_one_or_none()
+                if api_key_obj and api_key_obj.api_key:
+                    global_key = api_key_obj.api_key
+                    global_url = api_key_obj.base_url
 
             # Group KBs by (api_key, base_url, model)
             groups: dict[tuple, list] = {}

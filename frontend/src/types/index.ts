@@ -107,8 +107,67 @@ export interface ProviderInfo {
   models: ModelConfig[];
 }
 
-export interface ProviderWithKey extends ProviderInfo {
-  key: string;
+// ── New RAGFlow-style model catalog ──
+
+export interface FactoryModelInfo {
+  llm_name: string;
+  tags?: string;
+  max_tokens?: number;
+  model_type: string;
+  is_tools: boolean;
+}
+
+export interface FactoryInfo {
+  name: string;
+  logo?: string;
+  tags: string;
+  status: string;
+  rank: string;
+  url?: string;
+  llm: FactoryModelInfo[];
+}
+
+export interface LLMModel {
+  id: string;
+  factory: string;
+  model_type: string;
+  model_name: string;
+  api_key_masked?: string;
+  base_url?: string;
+  max_tokens?: number;
+  is_tools: boolean;
+  tags?: string;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+export interface LLMModelCreate {
+  factory: string;
+  model_name: string;
+  model_type: string;
+  api_key?: string;
+  base_url?: string;
+  max_tokens?: number;
+  is_tools?: boolean;
+  tags?: string;
+  extra?: string;
+}
+
+export interface LLMModelUpdate {
+  model_name?: string;
+  api_key?: string;
+  base_url?: string;
+  max_tokens?: number;
+  is_tools?: boolean;
+  is_active?: boolean;
+  extra?: string;
+}
+
+export interface DefaultModel {
+  model_type: string;
+  llm_model_id: string;
+  factory: string;
+  model_name: string;
 }
 
 export interface UsageSummary {

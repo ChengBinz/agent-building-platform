@@ -37,27 +37,67 @@ import { ref, computed, onMounted } from "vue";
 import { ElMessageBox } from "element-plus";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agent";
-import { listModels } from "@/api/models";
-import ChatSidebar from "@/components/chat/ChatSidebar.vue";
-import ChatMain from "@/components/chat/ChatMain.vue";
-import AgentDialog from "@/components/chat/AgentDialog.vue";
-import type { Agent, ProviderInfo, ProviderWithKey } from "@/types";
+import { listLLMModels } from "@/api/models";
+import { listKnowledgeBases } from "@/api/knowledge";
+import { marked } from "marked";
+import type { Agent, LLMModel, KnowledgeBase } from "@/types";
 
 const chatStore = useChatStore();
 const agentStore = useAgentStore();
 
-const providers = ref<ProviderInfo[]>([]);
+// Model selector: grouped by factory name, value is `provider:modelName` where
+// provider is the lowercase factory alias compatible with chat_service backend.
+const llmModels = ref<LLMModel[]>([]);
 const currentModel = ref("");
 
-const configuredProviders = computed<ProviderWithKey[]>(() => {
-  const result: ProviderWithKey[] = [];
-  for (const p of providers.value) {
-    if (p.configured) {
-      const key = p.models[0]?.provider || "";
-      result.push({ ...p, key });
+// Factory name → lowercase provider alias (must stay in sync with backend
+// _FACTORY_ALIASES in chat_service.py).
+const FACTORY_TO_PROVIDER: Record<string, string> = {
+  OpenAI: "openai",
+  "OpenAI-API-Compatible": "openai",
+  Anthropic: "anthropic",
+  DeepSeek: "deepseek",
+  "Tongyi-Qianwen": "dashscope",
+  "ZHIPU-AI": "zhipu",
+  Moonshot: "moonshot",
+  xAI: "xai",
+  Gemini: "gemini",
+  Mistral: "mistral",
+  "Azure-OpenAI": "azure",
+  Ollama: "ollama",
+  VLLM: "vllm",
+  SILICONFLOW: "siliconflow",
+  GiteeAI: "gitee",
+  Groq: "groq",
+  OpenRouter: "openrouter",
+  "Tencent-Hunyuan": "hunyuan",
+  MiniMax: "minimax",
+  BaiChuan: "baichuan",
+};
+
+function factoryToProvider(factory: string): string {
+  return FACTORY_TO_PROVIDER[factory] || factory.toLowerCase();
+}
+
+interface ProviderGroup {
+  name: string;
+  key: string;
+  models: { name: string; provider: string }[];
+}
+
+const configuredProviders = computed<ProviderGroup[]>(() => {
+  // Group chat models by factory
+  const map = new Map<string, ProviderGroup>();
+  for (const m of llmModels.value) {
+    if (m.model_type !== "chat") continue;
+    if (!m.is_active) continue;
+    const providerKey = factoryToProvider(m.factory);
+    if (!map.has(m.factory)) {
+      map.set(m.factory, { name: m.factory, key: providerKey, models: [] });
     }
+    map.get(m.factory)!.models.push({ name: m.model_name, provider: providerKey });
   }
-  return result;
+  return [...map.values()];
 });
 
 const msgs = computed(() => chatStore.currentConversation?.messages || []);
@@ -68,10 +108,21 @@ const editingAgent = ref<Agent | null>(null);
 onMounted(async () => {
   agentStore.fetchAgents();
   try {
-    const { data } = await listModels();
-    providers.value = data;
-  } catch { /* ignore */ }
-});
+    const { data } = await listLLMModels();
+    llmModels.value = data;
+  } catch {
+    // ignore
+  }
+}
+
+function renderMarkdown(text: string): string {
+  if (!text) return "";
+  try {
+    return marked.parse(text) as string;
+  } catch {
+    return text;
+  }
+}
 
 // === Agent actions ===
 function handleCreateAgent() {

@@ -70,10 +70,42 @@ async def ingest_document(
 
             embedding_model = kb.embedding_model or settings.DEFAULT_EMBEDDING_MODEL
 
-            # Per-KB API key → global ApiKey
+            # Per-KB API key → llm_models (new) → legacy ApiKey
             api_key = kb.embedding_api_key
             base_url = kb.embedding_base_url
             if not api_key:
+                # Try new llm_models table: user's default embedding model or any active one
+                from app.models.llm_model import DefaultModel, LLMModel
+
+                dres = await db.execute(
+                    select(DefaultModel).where(
+                        DefaultModel.user_id == kb.user_id,
+                        DefaultModel.model_type == "embedding",
+                    )
+                )
+                d = dres.scalar_one_or_none()
+                if d is not None:
+                    llm = await db.get(LLMModel, d.llm_model_id)
+                    if llm and llm.api_key:
+                        api_key = llm.api_key
+                        base_url = llm.base_url
+                        embedding_model = llm.model_name
+                if not api_key:
+                    # any active embedding model
+                    eres = await db.execute(
+                        select(LLMModel).where(
+                            LLMModel.user_id == kb.user_id,
+                            LLMModel.model_type == "embedding",
+                            LLMModel.is_active == True,
+                        ).order_by(LLMModel.created_at.desc())
+                    )
+                    llm = eres.scalars().first()
+                    if llm and llm.api_key:
+                        api_key = llm.api_key
+                        base_url = llm.base_url
+                        embedding_model = llm.model_name
+            if not api_key:
+                # Legacy: api_keys table with provider='embedding'
                 key_result = await db.execute(
                     select(ApiKey).where(
                         ApiKey.user_id == kb.user_id,
