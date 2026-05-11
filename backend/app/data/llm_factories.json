@@ -1,0 +1,289 @@
+{
+  "factory_llm_infos": [
+    {
+      "name": "OpenAI",
+      "logo": "openai",
+      "tags": "LLM,TEXT EMBEDDING,TTS,SPEECH2TEXT",
+      "status": "1",
+      "rank": "1000",
+      "url": "https://api.openai.com/v1",
+      "llm": [
+        { "llm_name": "gpt-4o",            "tags": "LLM,CHAT,128K,IMAGE2TEXT", "max_tokens": 128000,  "model_type": "chat",       "is_tools": true },
+        { "llm_name": "gpt-4o-mini",       "tags": "LLM,CHAT,128K,IMAGE2TEXT", "max_tokens": 128000,  "model_type": "chat",       "is_tools": true },
+        { "llm_name": "gpt-4.1",           "tags": "LLM,CHAT,1M,IMAGE2TEXT",   "max_tokens": 1047576, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "gpt-4.1-mini",      "tags": "LLM,CHAT,1M,IMAGE2TEXT",   "max_tokens": 1047576, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "o4-mini",           "tags": "LLM,CHAT,200K",            "max_tokens": 200000,  "model_type": "chat",       "is_tools": true },
+        { "llm_name": "text-embedding-3-small", "tags": "TEXT EMBEDDING,8K",  "max_tokens": 8191,    "model_type": "embedding",  "is_tools": false },
+        { "llm_name": "text-embedding-3-large", "tags": "TEXT EMBEDDING,8K",  "max_tokens": 8191,    "model_type": "embedding",  "is_tools": false },
+        { "llm_name": "whisper-1",         "tags": "SPEECH2TEXT",              "max_tokens": 26214400,"model_type": "speech2text","is_tools": false },
+        { "llm_name": "tts-1",             "tags": "TTS",                      "max_tokens": 2048,    "model_type": "tts",        "is_tools": false }
+      ]
+    },
+    {
+      "name": "Anthropic",
+      "logo": "anthropic",
+      "tags": "LLM,IMAGE2TEXT",
+      "status": "1",
+      "rank": "990",
+      "url": "https://api.anthropic.com",
+      "llm": [
+        { "llm_name": "claude-opus-4-5",     "tags": "LLM,CHAT,IMAGE2TEXT,200k", "max_tokens": 200000, "model_type": "chat", "is_tools": true },
+        { "llm_name": "claude-sonnet-4-5",   "tags": "LLM,CHAT,IMAGE2TEXT,200k", "max_tokens": 200000, "model_type": "chat", "is_tools": true },
+        { "llm_name": "claude-haiku-4-5",    "tags": "LLM,CHAT,IMAGE2TEXT,200k", "max_tokens": 200000, "model_type": "chat", "is_tools": true },
+        { "llm_name": "claude-3-7-sonnet-20250219", "tags": "LLM,CHAT,IMAGE2TEXT,200k", "max_tokens": 200000, "model_type": "chat", "is_tools": true },
+        { "llm_name": "claude-3-5-sonnet-20241022", "tags": "LLM,CHAT,IMAGE2TEXT,200k", "max_tokens": 200000, "model_type": "chat", "is_tools": true }
+      ]
+    },
+    {
+      "name": "DeepSeek",
+      "logo": "deepseek",
+      "tags": "LLM",
+      "status": "1",
+      "rank": "980",
+      "url": "https://api.deepseek.com/v1",
+      "llm": [
+        { "llm_name": "deepseek-chat",     "tags": "LLM,CHAT,64k",  "max_tokens": 65536,  "model_type": "chat", "is_tools": true },
+        { "llm_name": "deepseek-reasoner", "tags": "LLM,CHAT,64k",  "max_tokens": 65536,  "model_type": "chat", "is_tools": false },
+        { "llm_name": "deepseek-v4-flash", "tags": "LLM,CHAT,1M",   "max_tokens": 1000000,"model_type": "chat", "is_tools": true },
+        { "llm_name": "deepseek-v4-pro",   "tags": "LLM,CHAT,1M",   "max_tokens": 1000000,"model_type": "chat", "is_tools": true }
+      ]
+    },
+    {
+      "name": "Tongyi-Qianwen",
+      "logo": "tongyi",
+      "tags": "LLM,TEXT EMBEDDING,TEXT RE-RANK,IMAGE2TEXT",
+      "status": "1",
+      "rank": "970",
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "llm": [
+        { "llm_name": "qwen-turbo",                  "tags": "LLM,CHAT,1M",   "max_tokens": 1000000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "qwen-plus",                   "tags": "LLM,CHAT,132k", "max_tokens": 131072,  "model_type": "chat",      "is_tools": true },
+        { "llm_name": "qwen-max",                    "tags": "LLM,CHAT,32k",  "max_tokens": 32768,   "model_type": "chat",      "is_tools": true },
+        { "llm_name": "qwen3-max",                   "tags": "LLM,CHAT,256k", "max_tokens": 256000,  "model_type": "chat",      "is_tools": true },
+        { "llm_name": "qwen3-coder-480b-a35b-instruct","tags": "LLM,CHAT,256k","max_tokens": 256000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "qwen-vl-plus",                "tags": "LLM,IMAGE2TEXT","max_tokens": 8192,    "model_type": "image2text","is_tools": false },
+        { "llm_name": "text-embedding-v3",           "tags": "TEXT EMBEDDING,8K","max_tokens": 8192, "model_type": "embedding", "is_tools": false },
+        { "llm_name": "text-embedding-v4",           "tags": "TEXT EMBEDDING,8K","max_tokens": 8192, "model_type": "embedding", "is_tools": false },
+        { "llm_name": "gte-rerank-v2",               "tags": "RE-RANK,4k",    "max_tokens": 4000,    "model_type": "rerank",    "is_tools": false }
+      ]
+    },
+    {
+      "name": "ZHIPU-AI",
+      "logo": "zhipu",
+      "tags": "LLM,TEXT EMBEDDING,IMAGE2TEXT",
+      "status": "1",
+      "rank": "960",
+      "url": "https://open.bigmodel.cn/api/paas/v4",
+      "llm": [
+        { "llm_name": "glm-4.5",       "tags": "LLM,CHAT,128K", "max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "glm-4.5-air",   "tags": "LLM,CHAT,128K", "max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "glm-4.5-flash", "tags": "LLM,CHAT,128k", "max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "glm-4-plus",    "tags": "LLM,CHAT,128K", "max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "glm-4-flash",   "tags": "LLM,CHAT,128k", "max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "glm-4v",        "tags": "LLM,IMAGE2TEXT","max_tokens": 2000,   "model_type": "image2text","is_tools": true },
+        { "llm_name": "embedding-3",   "tags": "TEXT EMBEDDING","max_tokens": 512,    "model_type": "embedding", "is_tools": false }
+      ]
+    },
+    {
+      "name": "Moonshot",
+      "logo": "moonshot",
+      "tags": "LLM,IMAGE2TEXT",
+      "status": "1",
+      "rank": "950",
+      "url": "https://api.moonshot.cn/v1",
+      "llm": [
+        { "llm_name": "moonshot-v1-8k",        "tags": "LLM,CHAT,8k",    "max_tokens": 8192,   "model_type": "chat", "is_tools": true },
+        { "llm_name": "moonshot-v1-32k",       "tags": "LLM,CHAT,32k",   "max_tokens": 32768,  "model_type": "chat", "is_tools": true },
+        { "llm_name": "moonshot-v1-128k",      "tags": "LLM,CHAT,128k",  "max_tokens": 131072, "model_type": "chat", "is_tools": true },
+        { "llm_name": "kimi-k2-0905-preview",  "tags": "LLM,CHAT,256k",  "max_tokens": 262144, "model_type": "chat", "is_tools": true },
+        { "llm_name": "kimi-latest",           "tags": "LLM,CHAT,128k",  "max_tokens": 131072, "model_type": "chat", "is_tools": true }
+      ]
+    },
+    {
+      "name": "xAI",
+      "logo": "xai",
+      "tags": "LLM,IMAGE2TEXT",
+      "status": "1",
+      "rank": "940",
+      "url": "https://api.x.ai/v1",
+      "llm": [
+        { "llm_name": "grok-4",        "tags": "LLM,CHAT,256k", "max_tokens": 256000, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "grok-3",        "tags": "LLM,CHAT,130k", "max_tokens": 131072, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "grok-3-mini",   "tags": "LLM,CHAT,130k", "max_tokens": 131072, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "grok-2-vision", "tags": "LLM,IMAGE2TEXT,32k","max_tokens": 32768,"model_type": "image2text","is_tools": true }
+      ]
+    },
+    {
+      "name": "Gemini",
+      "logo": "gemini",
+      "tags": "LLM,TEXT EMBEDDING,IMAGE2TEXT",
+      "status": "1",
+      "rank": "930",
+      "url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "llm": [
+        { "llm_name": "gemini-2.5-pro",        "tags": "LLM,CHAT,1M,IMAGE2TEXT", "max_tokens": 1048576, "model_type": "image2text","is_tools": true },
+        { "llm_name": "gemini-2.5-flash",      "tags": "LLM,CHAT,1M,IMAGE2TEXT", "max_tokens": 1048576, "model_type": "image2text","is_tools": true },
+        { "llm_name": "gemini-2.5-flash-lite", "tags": "LLM,CHAT,1M,IMAGE2TEXT", "max_tokens": 1048576, "model_type": "image2text","is_tools": true },
+        { "llm_name": "gemini-2.0-flash",      "tags": "LLM,CHAT,1M",            "max_tokens": 1048576, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "gemini-embedding-001",  "tags": "TEXT EMBEDDING",         "max_tokens": 2048,    "model_type": "embedding", "is_tools": false }
+      ]
+    },
+    {
+      "name": "Mistral",
+      "logo": "mistral",
+      "tags": "LLM,TEXT EMBEDDING",
+      "status": "1",
+      "rank": "920",
+      "url": "https://api.mistral.ai/v1",
+      "llm": [
+        { "llm_name": "mistral-large-latest", "tags": "LLM,CHAT,131k", "max_tokens": 131000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "mistral-small-latest", "tags": "LLM,CHAT,32k",  "max_tokens": 32000,  "model_type": "chat",      "is_tools": true },
+        { "llm_name": "codestral-latest",     "tags": "LLM,CHAT,256k", "max_tokens": 256000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "pixtral-large-latest", "tags": "LLM,IMAGE2TEXT,131k","max_tokens": 131000,"model_type": "image2text","is_tools": true },
+        { "llm_name": "mistral-embed",        "tags": "TEXT EMBEDDING,8k","max_tokens": 8192, "model_type": "embedding", "is_tools": false }
+      ]
+    },
+    {
+      "name": "Azure-OpenAI",
+      "logo": "azure",
+      "tags": "LLM,TEXT EMBEDDING",
+      "status": "1",
+      "rank": "910",
+      "url": "",
+      "llm": [
+        { "llm_name": "gpt-4o",                 "tags": "LLM,CHAT,128K","max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "gpt-4o-mini",            "tags": "LLM,CHAT,128K","max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "gpt-4-turbo",            "tags": "LLM,CHAT,128K","max_tokens": 128000, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "text-embedding-3-small", "tags": "TEXT EMBEDDING,8K","max_tokens": 8191,"model_type": "embedding","is_tools": false },
+        { "llm_name": "text-embedding-3-large", "tags": "TEXT EMBEDDING,8K","max_tokens": 8191,"model_type": "embedding","is_tools": false }
+      ]
+    },
+    {
+      "name": "Ollama",
+      "logo": "ollama",
+      "tags": "LLM,TEXT EMBEDDING,IMAGE2TEXT",
+      "status": "1",
+      "rank": "880",
+      "url": "http://localhost:11434/v1",
+      "llm": []
+    },
+    {
+      "name": "OpenAI-API-Compatible",
+      "logo": "openai",
+      "tags": "LLM,TEXT EMBEDDING,IMAGE2TEXT",
+      "status": "1",
+      "rank": "870",
+      "url": "",
+      "llm": []
+    },
+    {
+      "name": "VLLM",
+      "logo": "vllm",
+      "tags": "LLM,TEXT EMBEDDING",
+      "status": "1",
+      "rank": "860",
+      "url": "",
+      "llm": []
+    },
+    {
+      "name": "SILICONFLOW",
+      "logo": "siliconflow",
+      "tags": "LLM,TEXT EMBEDDING,TEXT RE-RANK,IMAGE2TEXT",
+      "status": "1",
+      "rank": "850",
+      "url": "https://api.siliconflow.cn/v1",
+      "llm": [
+        { "llm_name": "Qwen/Qwen3-235B-A22B",     "tags": "LLM,CHAT,128k",       "max_tokens": 128000, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "Qwen/Qwen3-32B",           "tags": "LLM,CHAT,128k",       "max_tokens": 128000, "model_type": "chat",       "is_tools": true },
+        { "llm_name": "deepseek-ai/DeepSeek-V3",  "tags": "LLM,CHAT,64k",        "max_tokens": 64000,  "model_type": "chat",       "is_tools": true },
+        { "llm_name": "deepseek-ai/DeepSeek-R1",  "tags": "LLM,CHAT,64k",        "max_tokens": 64000,  "model_type": "chat",       "is_tools": true },
+        { "llm_name": "Qwen/Qwen2.5-VL-72B-Instruct","tags": "LLM,IMAGE2TEXT,128k","max_tokens": 128000,"model_type": "image2text","is_tools": true },
+        { "llm_name": "BAAI/bge-m3",              "tags": "TEXT EMBEDDING,8k",   "max_tokens": 8192,   "model_type": "embedding",  "is_tools": false },
+        { "llm_name": "BAAI/bge-reranker-v2-m3",  "tags": "RE-RANK,8k",          "max_tokens": 8192,   "model_type": "rerank",     "is_tools": false },
+        { "llm_name": "Qwen/Qwen3-Embedding-8B",  "tags": "TEXT EMBEDDING,32k",  "max_tokens": 32000,  "model_type": "embedding",  "is_tools": false }
+      ]
+    },
+    {
+      "name": "GiteeAI",
+      "logo": "gitee",
+      "tags": "LLM,TEXT EMBEDDING,TEXT RE-RANK",
+      "status": "1",
+      "rank": "840",
+      "url": "https://ai.gitee.com/v1",
+      "llm": [
+        { "llm_name": "DeepSeek-V3",   "tags": "LLM,CHAT",   "max_tokens": 65536,  "model_type": "chat",      "is_tools": false },
+        { "llm_name": "DeepSeek-R1",   "tags": "LLM,CHAT",   "max_tokens": 65792,  "model_type": "chat",      "is_tools": true },
+        { "llm_name": "Qwen3-32B",     "tags": "LLM,CHAT",   "max_tokens": 128000, "model_type": "chat",      "is_tools": false },
+        { "llm_name": "Qwen3-8B",      "tags": "LLM,CHAT",   "max_tokens": 128000, "model_type": "chat",      "is_tools": false },
+        { "llm_name": "QwQ-32B",       "tags": "LLM,CHAT",   "max_tokens": 131072, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "bge-m3",        "tags": "TEXT EMBEDDING","max_tokens": 8192,"model_type": "embedding","is_tools": false },
+        { "llm_name": "bge-reranker-v2-m3","tags": "RE-RANK","max_tokens": 8192,  "model_type": "rerank",     "is_tools": false }
+      ]
+    },
+    {
+      "name": "Groq",
+      "logo": "groq",
+      "tags": "LLM",
+      "status": "1",
+      "rank": "830",
+      "url": "https://api.groq.com/openai/v1",
+      "llm": [
+        { "llm_name": "llama-3.3-70b-versatile", "tags": "LLM,CHAT,128k","max_tokens": 128000, "model_type": "chat","is_tools": true },
+        { "llm_name": "llama-3.1-70b-versatile", "tags": "LLM,CHAT,128k","max_tokens": 131072, "model_type": "chat","is_tools": true },
+        { "llm_name": "llama-3.1-8b-instant",    "tags": "LLM,CHAT,128k","max_tokens": 131072, "model_type": "chat","is_tools": true },
+        { "llm_name": "mixtral-8x7b-32768",      "tags": "LLM,CHAT,32k","max_tokens": 32768,   "model_type": "chat","is_tools": false }
+      ]
+    },
+    {
+      "name": "OpenRouter",
+      "logo": "openrouter",
+      "tags": "LLM,IMAGE2TEXT",
+      "status": "1",
+      "rank": "820",
+      "url": "https://openrouter.ai/api/v1",
+      "llm": []
+    },
+    {
+      "name": "Tencent-Hunyuan",
+      "logo": "hunyuan",
+      "tags": "LLM,IMAGE2TEXT",
+      "status": "1",
+      "rank": "810",
+      "url": "https://api.hunyuan.cloud.tencent.com/v1",
+      "llm": [
+        { "llm_name": "hunyuan-pro",          "tags": "LLM,CHAT,32k",  "max_tokens": 32768,  "model_type": "chat",       "is_tools": true },
+        { "llm_name": "hunyuan-standard",     "tags": "LLM,CHAT,32k",  "max_tokens": 32768,  "model_type": "chat",       "is_tools": false },
+        { "llm_name": "hunyuan-standard-256K","tags": "LLM,CHAT,256k", "max_tokens": 262144, "model_type": "chat",       "is_tools": false },
+        { "llm_name": "hunyuan-lite",         "tags": "LLM,CHAT,256k", "max_tokens": 262144, "model_type": "chat",       "is_tools": false },
+        { "llm_name": "hunyuan-vision",       "tags": "LLM,IMAGE2TEXT,8k","max_tokens": 8192,"model_type": "image2text", "is_tools": false }
+      ]
+    },
+    {
+      "name": "MiniMax",
+      "logo": "minimax",
+      "tags": "LLM",
+      "status": "1",
+      "rank": "800",
+      "url": "https://api.minimaxi.com/v1",
+      "llm": [
+        { "llm_name": "MiniMax-M2",     "tags": "LLM,CHAT,200k","max_tokens": 200000, "model_type": "chat","is_tools": true },
+        { "llm_name": "MiniMax-M2.5",   "tags": "LLM,CHAT,200k","max_tokens": 204800, "model_type": "chat","is_tools": true },
+        { "llm_name": "MiniMax-M2.7",   "tags": "LLM,CHAT,200k","max_tokens": 204800, "model_type": "chat","is_tools": true }
+      ]
+    },
+    {
+      "name": "BaiChuan",
+      "logo": "baichuan",
+      "tags": "LLM,TEXT EMBEDDING",
+      "status": "1",
+      "rank": "790",
+      "url": "https://api.baichuan-ai.com/v1",
+      "llm": [
+        { "llm_name": "Baichuan4",              "tags": "LLM,CHAT,128K", "max_tokens": 131072, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "Baichuan3-Turbo",        "tags": "LLM,CHAT,32K",  "max_tokens": 32768,  "model_type": "chat",      "is_tools": true },
+        { "llm_name": "Baichuan3-Turbo-128k",   "tags": "LLM,CHAT,128K", "max_tokens": 131072, "model_type": "chat",      "is_tools": true },
+        { "llm_name": "Baichuan-Text-Embedding","tags": "TEXT EMBEDDING","max_tokens": 512,    "model_type": "embedding", "is_tools": false }
+      ]
+    }
+  ]
+}

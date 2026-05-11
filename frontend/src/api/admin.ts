@@ -23,10 +23,6 @@ export async function getSystemStats() {
   return apiClient.get("/admin/stats");
 }
 
-export async function getModels() {
-  return apiClient.get("/models");
-}
-
 export async function getUsageSummary() {
   return apiClient.get("/monitoring/usage");
 }

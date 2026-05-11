@@ -228,7 +228,13 @@ function pollUntilDone(kbId: string) {
       if (allDone) {
         await kbStore.selectKnowledgeBase(kbId);
         await kbStore.fetchKnowledgeBases();
-        ElMessage.success("文档解析完成");
+        const failedDocs = data.documents?.filter((d: any) => d.status === "failed") || [];
+        if (failedDocs.length > 0) {
+          const errMsg = failedDocs[0].error_message || "未知错误";
+          ElMessage.error(`文档解析失败: ${errMsg}`);
+        } else {
+          ElMessage.success("文档解析完成");
+        }
         return;
       }
       pollTimer = setTimeout(poll, 3000);

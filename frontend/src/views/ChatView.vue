@@ -240,10 +240,10 @@ import { ElMessageBox } from "element-plus";
 import { Plus, Delete, Promotion, UserFilled, ChatDotRound, Setting, ArrowRight } from "@element-plus/icons-vue";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agent";
-import { listModels } from "@/api/models";
+import { listLLMModels } from "@/api/models";
 import { listKnowledgeBases } from "@/api/knowledge";
 import { marked } from "marked";
-import type { Agent, ProviderInfo, KnowledgeBase } from "@/types";
+import type { Agent, LLMModel, KnowledgeBase } from "@/types";
 
 const chatStore = useChatStore();
 const agentStore = useAgentStore();
@@ -251,23 +251,59 @@ const inputText = ref("");
 const msgContainer = ref<HTMLElement>();
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 
-// Model selector
-const providers = ref<ProviderInfo[]>([]);
+// Model selector: grouped by factory name, value is `provider:modelName` where
+// provider is the lowercase factory alias compatible with chat_service backend.
+const llmModels = ref<LLMModel[]>([]);
 const currentModel = ref("");
 
-interface ProviderWithKey extends ProviderInfo {
-  key: string;
+// Factory name → lowercase provider alias (must stay in sync with backend
+// _FACTORY_ALIASES in chat_service.py).
+const FACTORY_TO_PROVIDER: Record<string, string> = {
+  OpenAI: "openai",
+  "OpenAI-API-Compatible": "openai",
+  Anthropic: "anthropic",
+  DeepSeek: "deepseek",
+  "Tongyi-Qianwen": "dashscope",
+  "ZHIPU-AI": "zhipu",
+  Moonshot: "moonshot",
+  xAI: "xai",
+  Gemini: "gemini",
+  Mistral: "mistral",
+  "Azure-OpenAI": "azure",
+  Ollama: "ollama",
+  VLLM: "vllm",
+  SILICONFLOW: "siliconflow",
+  GiteeAI: "gitee",
+  Groq: "groq",
+  OpenRouter: "openrouter",
+  "Tencent-Hunyuan": "hunyuan",
+  MiniMax: "minimax",
+  BaiChuan: "baichuan",
+};
+
+function factoryToProvider(factory: string): string {
+  return FACTORY_TO_PROVIDER[factory] || factory.toLowerCase();
 }
 
-const configuredProviders = computed<ProviderWithKey[]>(() => {
-  const result: ProviderWithKey[] = [];
-  for (const p of providers.value) {
-    if (p.configured) {
-      const key = p.models[0]?.provider || "";
-      result.push({ ...p, key });
+interface ProviderGroup {
+  name: string;
+  key: string;
+  models: { name: string; provider: string }[];
+}
+
+const configuredProviders = computed<ProviderGroup[]>(() => {
+  // Group chat models by factory
+  const map = new Map<string, ProviderGroup>();
+  for (const m of llmModels.value) {
+    if (m.model_type !== "chat") continue;
+    if (!m.is_active) continue;
+    const providerKey = factoryToProvider(m.factory);
+    if (!map.has(m.factory)) {
+      map.set(m.factory, { name: m.factory, key: providerKey, models: [] });
     }
+    map.get(m.factory)!.models.push({ name: m.model_name, provider: providerKey });
   }
-  return result;
+  return [...map.values()];
 });
 
 // Agent dialog
@@ -335,8 +371,8 @@ onMounted(() => {
 
 async function loadModels() {
   try {
-    const { data } = await listModels();
-    providers.value = data;
+    const { data } = await listLLMModels();
+    llmModels.value = data;
   } catch {
     // ignore
   }
