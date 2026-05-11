@@ -220,6 +220,11 @@
             </el-option-group>
           </el-select>
         </el-form-item>
+        <el-form-item label="知识库">
+          <el-select v-model="agentForm.kb_ids" multiple collapse-tags collapse-tags-tooltip placeholder="选择关联知识库（可选）" style="width: 100%">
+            <el-option v-for="kb in knowledgeBases" :key="kb.id" :label="kb.name" :value="kb.id" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showAgentDialog = false">取消</el-button>
@@ -236,13 +241,15 @@ import { Plus, Delete, Promotion, UserFilled, ChatDotRound, Setting, ArrowRight 
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agent";
 import { listModels } from "@/api/models";
+import { listKnowledgeBases } from "@/api/knowledge";
 import { marked } from "marked";
-import type { Agent, ProviderInfo } from "@/types";
+import type { Agent, ProviderInfo, KnowledgeBase } from "@/types";
 
 const chatStore = useChatStore();
 const agentStore = useAgentStore();
 const inputText = ref("");
 const msgContainer = ref<HTMLElement>();
+const knowledgeBases = ref<KnowledgeBase[]>([]);
 
 // Model selector
 const providers = ref<ProviderInfo[]>([]);
@@ -272,6 +279,7 @@ const agentForm = ref({
   avatar: "",
   system_prompt: "",
   modelSelect: "",
+  kb_ids: [] as string[],
 });
 
 const defaultAgentName = computed(() => "新的智能体");
@@ -344,6 +352,15 @@ function renderMarkdown(text: string): string {
 }
 
 // === Agent actions ===
+async function loadKnowledgeBases() {
+  try {
+    const { data } = await listKnowledgeBases();
+    knowledgeBases.value = data;
+  } catch {
+    // ignore
+  }
+}
+
 async function handleCreateAgent() {
   editingAgent.value = null;
   agentForm.value = {
@@ -352,11 +369,13 @@ async function handleCreateAgent() {
     avatar: "",
     system_prompt: "",
     modelSelect: "",
+    kb_ids: [],
   };
+  await loadKnowledgeBases();
   showAgentDialog.value = true;
 }
 
-function openAgentConfig(agent: Agent) {
+async function openAgentConfig(agent: Agent) {
   editingAgent.value = agent;
   agentForm.value = {
     name: agent.name,
@@ -364,12 +383,14 @@ function openAgentConfig(agent: Agent) {
     avatar: agent.avatar || "",
     system_prompt: agent.system_prompt || "",
     modelSelect: agent.provider ? `${agent.provider}:${agent.model_name}` : "",
+    kb_ids: agent.kb_ids ? [...agent.kb_ids] : [],
   };
+  await loadKnowledgeBases();
   showAgentDialog.value = true;
 }
 
 async function handleSaveAgent() {
-  const { name, description, avatar, system_prompt, modelSelect } = agentForm.value;
+  const { name, description, avatar, system_prompt, modelSelect, kb_ids } = agentForm.value;
   const agentName = name.trim() || defaultAgentName.value;
   let provider = "";
   let modelName = "";
@@ -387,6 +408,7 @@ async function handleSaveAgent() {
       system_prompt: system_prompt || undefined,
       model_name: modelName,
       provider,
+      kb_ids: kb_ids.length > 0 ? kb_ids : undefined,
     });
   } else {
     const agent = await agentStore.createAgent({
@@ -396,6 +418,7 @@ async function handleSaveAgent() {
       system_prompt: system_prompt || undefined,
       model_name: modelName,
       provider,
+      kb_ids: kb_ids.length > 0 ? kb_ids : undefined,
     });
     if (agent) {
       await agentStore.selectAgent(agent.id);

@@ -17,8 +17,8 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(255), default="新的对话", nullable=False)
-    model_name: Mapped[str] = mapped_column(String(128), default="gpt-4o-mini", nullable=False)
-    provider: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), default="deepseek-v4-flash", nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), default="deepseek", nullable=False)
     system_prompt: Mapped[str | None] = mapped_column(Text)
     kb_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(UUID(as_uuid=True)), default=[])
     message_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

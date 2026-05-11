@@ -76,6 +76,8 @@ export interface KnowledgeBase {
   name: string;
   description?: string;
   embedding_model: string;
+  embedding_api_key_masked?: string;
+  embedding_base_url?: string;
   chunk_count: number;
   document_count: number;
   created_at: string;

@@ -9,8 +9,8 @@ class AgentCreate(BaseModel):
     description: str | None = None
     avatar: str | None = None
     system_prompt: str | None = None
-    model_name: str = "gpt-4o-mini"
-    provider: str = ""
+    model_name: str = "deepseek-v4-flash"
+    provider: str = "deepseek"
     tools: list[str] | None = None
     kb_ids: list[UUID] | None = None
 
