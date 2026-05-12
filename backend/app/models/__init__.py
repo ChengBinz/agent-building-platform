@@ -8,6 +8,8 @@ from app.models.message import Message
 from app.models.knowledge_base import KnowledgeBase
 from app.models.document import Document
 from app.models.usage_log import UsageLog
+from app.models.mcp import MCPServer, MCPTool
+from app.models.skill import Skill
 
 __all__ = [
     "Base",
@@ -20,4 +22,6 @@ __all__ = [
     "KnowledgeBase",
     "Document",
     "UsageLog",
+    "MCPServer", "MCPTool",
+    "Skill",
 ]

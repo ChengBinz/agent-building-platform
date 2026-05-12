@@ -3,5 +3,8 @@
     "allow": [
       "Bash(docker compose *)"
     ]
+  },
+  "skillOverrides": {
+    "graphify": "off"
   }
 }

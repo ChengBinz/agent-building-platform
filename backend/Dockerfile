@@ -20,5 +20,5 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-# Run migrations then start server
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Start server (tables auto-created via SQLAlchemy create_all)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]
