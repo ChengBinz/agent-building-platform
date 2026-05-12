@@ -133,10 +133,10 @@ class KnowledgeService:
         kb = await self.get_knowledge_base(user_id, kb_id)
 
         ext = os.path.splitext(file.filename or "")[1].lower()
-        if ext not in {".txt", ".md"}:
+        if ext not in {".txt", ".md", ".pdf"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="仅支持 .txt 和 .md 文件",
+                detail="仅支持 .txt、.md 和 .pdf 文件",
             )
 
         content = await file.read()
