@@ -3,7 +3,7 @@ import csv
 import io
 import os
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
 
 
 def load_document(file_path: str) -> str:
@@ -19,6 +19,8 @@ def load_document(file_path: str) -> str:
         return _load_text_file(file_path)
     if ext == ".pdf":
         return _load_pdf(file_path)
+    if ext == ".docx":
+        return _load_docx(file_path)
 
     raise ValueError(f"不支持的文件类型: {ext}")
 
@@ -49,3 +51,12 @@ def _load_pdf(file_path: str) -> str:
         if text:
             parts.append(text)
     return "\n\n".join(parts)
+
+
+def _load_docx(file_path: str) -> str:
+    """Extract text from a .docx file."""
+    from docx import Document
+
+    doc = Document(file_path)
+    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+    return "\n".join(paragraphs)
