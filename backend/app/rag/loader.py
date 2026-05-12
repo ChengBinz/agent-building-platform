@@ -1,6 +1,5 @@
 """Multi-format document loader — extracts plain text from supported file types."""
 import csv
-import io
 import os
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".csv"}
@@ -56,11 +55,43 @@ def _load_pdf(file_path: str) -> str:
 
 
 def _load_docx(file_path: str) -> str:
-    """Extract text from a .docx file."""
-    from docx import Document
+    """Extract text from a .docx file.
 
-    doc = Document(file_path)
-    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+    Tries python-docx first; falls back to manual ZIP/XML extraction for
+    malformed files (e.g. WPS-generated with missing Content_Types entries).
+    """
+    try:
+        from docx import Document
+
+        doc = Document(file_path)
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        if paragraphs:
+            return "\n".join(paragraphs)
+        # If python-docx succeeds but returns no text, try fallback too
+    except Exception:
+        pass
+
+    # Fallback: manually parse word/document.xml from the ZIP archive
+    import xml.etree.ElementTree as ET
+    import zipfile
+
+    with zipfile.ZipFile(file_path, "r") as z:
+        if "word/document.xml" not in z.namelist():
+            raise ValueError("无效的 docx 文件：缺少 word/document.xml")
+        xml_content = z.read("word/document.xml")
+
+    root = ET.fromstring(xml_content)
+    # docx XML namespace
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    paragraphs = []
+    for p in root.iterfind(".//w:p", ns):
+        texts = []
+        for t in p.iterfind(".//w:t", ns):
+            if t.text:
+                texts.append(t.text)
+        line = "".join(texts).strip()
+        if line:
+            paragraphs.append(line)
     return "\n".join(paragraphs)
 
 
