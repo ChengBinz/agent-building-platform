@@ -84,11 +84,11 @@ class SkillService:
         await self.db.delete(skill)
         await self.db.flush()
 
-    async def toggle_skill(self, user_id: uuid.UUID, skill_id: uuid.UUID, data: SkillToggle) -> Skill:
+    async def toggle_skill(self, user_id: uuid.UUID, skill_id: uuid.UUID, data: SkillToggle, is_superuser: bool = False) -> Skill:
         skill = await self.get_skill(skill_id)
         if skill.is_system:
-            # System skills: any user can toggle
-            pass
+            if not is_superuser:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅管理员可修改系统技能")
         elif skill.user_id != user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权修改此技能")
         skill.is_active = data.is_active
