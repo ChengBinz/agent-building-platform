@@ -3,7 +3,7 @@ import csv
 import io
 import os
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".csv"}
 
 
 def load_document(file_path: str) -> str:
@@ -21,6 +21,8 @@ def load_document(file_path: str) -> str:
         return _load_pdf(file_path)
     if ext == ".docx":
         return _load_docx(file_path)
+    if ext == ".csv":
+        return _load_csv(file_path)
 
     raise ValueError(f"不支持的文件类型: {ext}")
 
@@ -60,3 +62,11 @@ def _load_docx(file_path: str) -> str:
     doc = Document(file_path)
     paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
     return "\n".join(paragraphs)
+
+
+def _load_csv(file_path: str) -> str:
+    """Extract text from a CSV file, joining cells with separators."""
+    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+        reader = csv.reader(f)
+        rows = [" | ".join(row) for row in reader if any(cell.strip() for cell in row)]
+        return "\n".join(rows)
