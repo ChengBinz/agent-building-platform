@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import admin, agents, auth, chat, knowledge, models, monitoring, users, mcp, skill
+from app.api.v1 import admin, agents, auth, chat, knowledge, models, monitoring, users, mcp, skill, tools
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -14,3 +14,4 @@ api_router.include_router(users.router, tags=["users"])
 api_router.include_router(admin.router, tags=["admin"])
 api_router.include_router(mcp.router, tags=["mcp"])
 api_router.include_router(skill.router, tags=["skill"])
+api_router.include_router(tools.router, tags=["tools"])

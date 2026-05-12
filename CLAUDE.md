@@ -45,22 +45,59 @@ Backend uses SQLAlchemy `create_all` for automatic table creation on startup (de
 - `backend/app/db/session.py` — async SQLAlchemy engine + session factory; `get_db` yields a session that auto-commits on success and rolls back on exception
 - `backend/app/models/` — SQLAlchemy ORM models: all tables use UUID PKs via `UUIDMixin` and timestamps via `TimestampMixin`; relationships use `lazy="selectin"`
 - `backend/app/schemas/` — Pydantic request/response schemas
-- `backend/app/services/` — business logic, one service class per domain; each receives `AsyncSession` via constructor
+- `backend/app/services/` — business logic, one service class per domain; each receives `AsyncSession` via constructor. `tool_service.py` is a stateless module (no class) providing unified tool resolution and execution across built-in and MCP tools
 - `backend/app/config.py` — `pydantic-settings` reading from `.env`
 
 ### Agents System
 
 Users interact with "agents" rather than raw LLM models. Each agent has: `name`, `system_prompt`, `model_name`, `provider`, `tools[]`, `kb_ids[]`. Conversations are tied to agents via `agent_id` FK. When creating a conversation under an agent, `kb_ids` and model config are inherited from the agent. `ChatService._retrieve_rag_context()` uses `conv.kb_ids` to search knowledge bases and inject relevant context.
 
+### Tool Calling System
+
+LLM-driven function calling via a decoupled architecture:
+
+```
+chat_service → tool_service → 内置工具 (web_search)
+                            → MCP 工具 → mcp_client → MCP Server (HTTP JSON-RPC)
+```
+
+- **Tool selection**: Users select tools when creating/editing an Agent (`AgentDialog.vue`)
+- **LLM decides**: Tool schemas are passed to the LLM as `tools` parameter; the LLM decides when to call them
+- **Execution loop**: `send_message_stream()` runs up to 5 tool-calling rounds (LLM → tool_calls → execute → re-invoke LLM)
+- **SSE events**: Tool calls/results are sent to frontend as `[TOOL_CALL]{json}` and `[TOOL_RESULT]{json}` SSE events
+
+Key files:
+- `backend/app/services/tool_service.py` — unified interface: `get_tool_schemas()`, `execute_tool()`, `get_all_tools_info()`
+- `backend/app/services/mcp_client.py` — MCP HTTP client: `call_mcp_tool()`, `discover_tools()`
+- `backend/app/tools/registry.py` — built-in tool registry (web_search only)
+- `backend/app/engine/openai_compat.py` — streaming `delta.tool_calls` parsing and assembly
+
+### MCP Servers
+
+Standalone processes implementing the MCP protocol (JSON-RPC 2.0 over HTTP). Located in `mcp-servers/`:
+
+- `mcp-servers/weather/server.py` — weather lookup via wttr.in (port 9100)
+- `mcp-servers/timezone/server.py` — timezone lookup via Python stdlib (port 9101)
+
+MCP servers expose:
+- `POST /` — JSON-RPC endpoint (methods: `initialize`, `tools/list`, `tools/call`)
+- `GET /sse` — SSE transport endpoint
+
+User workflow: register MCP server URL in the MCP page → sync tools → select tools on Agent → LLM auto-invokes them.
+
+**Note**: From Docker containers, MCP servers on the host must be accessed via `host.docker.internal` (not `localhost`).
+
 ### LLM Engine (`backend/app/engine/`)
 
-All 5 providers (OpenAI, Anthropic, DeepSeek, DashScope, Ollama) route through a single `OpenAICompatProvider` wrapping `AsyncOpenAI`:
+All providers route through a single `OpenAICompatProvider` wrapping `AsyncOpenAI`:
 
 - `base.py` — abstract `LLMProvider` with `generate_stream()` returning `AsyncGenerator[StreamChunk]`
-- `openai_compat.py` — single concrete provider using `AsyncOpenAI` client
+- `openai_compat.py` — single concrete provider using `AsyncOpenAI` client; supports `tools` kwarg via `**kwargs`; streaming loop parses `delta.tool_calls` and yields assembled tool call dicts at end of stream
 - `registry.py` — maps provider keys to base URLs and instantiates the provider
 - `openai.py`, `anthropic.py`, `ollama.py` — dead code; not wired into the registry
 - `tool_manager.py` — stub (TODO)
+
+`StreamChunk` types: `{"token": str}` for text, `{"tool_calls": [list]}` for assembled tool calls at stream end.
 
 ### RAG Pipeline (`backend/app/rag/`)
 
@@ -109,15 +146,20 @@ Multi-turn memory via LLM summarization with Redis caching:
 | `/api/v1/` | `monitoring.py` | usage summary + by-model breakdown |
 | `/api/v1/` | `users.py` | user profile management |
 | `/api/v1/` | `admin.py` | user management + system stats (superuser only) |
-| `/api/v1/mcp/` | `mcp.py` | MCP servers CRUD + connection test; MCP tools list + toggle |
+| `/api/v1/mcp/` | `mcp.py` | MCP servers CRUD + connection test + tool sync; MCP tools list + toggle |
+| `/api/v1/tools` | `tools.py` | list all available tools (built-in + MCP) for current user |
 | `/api/v1/skills` | `skill.py` | system skills list; user skills CRUD + toggle |
 | `/health` | `main.py` | health check |
 
 ### SSE Streaming Pattern
 
-**Backend**: `send_message_stream()` returns `StreamingResponse` with `media_type="text/event-stream"`. Yields `data: <token>\n\n` per chunk, `data: [DONE]\n\n` on completion.
+**Backend**: `send_message_stream()` returns `StreamingResponse` with `media_type="text/event-stream"`. Event types:
+- `data: <token>\n\n` — text token
+- `data: [TOOL_CALL]{"name":"...","args":{...}}\n\n` — tool invocation notification
+- `data: [TOOL_RESULT]{"name":"...","result":"..."}\n\n` — tool execution result
+- `data: [DONE]\n\n` — stream complete
 
-**Frontend**: `api/chat.ts` uses raw `fetch()` with `AbortController` for cancellation. `ReadableStream` reader parses SSE lines. `stores/chat.ts` manages optimistic message append and streaming placeholder updates.
+**Frontend**: `api/chat.ts` uses raw `fetch()` with `AbortController` for cancellation. `ReadableStream` reader parses SSE lines, dispatches `[TOOL_CALL]`/`[TOOL_RESULT]` to dedicated callbacks. `stores/chat.ts` manages optimistic message append and tool call rendering.
 
 ### Frontend Component Structure
 
@@ -168,6 +210,7 @@ views/
 ## Key implementation notes
 
 - **Engine is wired**: `ChatService` calls real LLM APIs via `OpenAICompatProvider`; NOT a placeholder
+- **Tool calling is real**: LLM receives tool schemas, returns tool_calls, chat_service executes tools and loops back — up to 5 rounds
 - **RAG is fully implemented**: Document ingestion runs as background `asyncio.create_task` with stored references to prevent GC; uses `expire_on_commit=False` session; commits before task creation to avoid race conditions
 - **Embedding config fallback**: per-KB key → global ApiKey table (provider="embedding") → error. No config.py fallback
 - **Dead code**: `engine/openai.py`, `engine/anthropic.py`, `engine/ollama.py` are unused; `engine/tool_manager.py` is a stub; `core/permissions.py` is a stub
@@ -182,3 +225,4 @@ views/
 - **Dependencies**: Python via `requirements.txt`; Node via `package.json` + `package-lock.json`
 - **Admin registration gate**: Requires `ADMIN_REGISTRATION_CODE` env var
 - **Database migrations**: Dev uses SQLAlchemy `create_all` (auto-create new tables on startup). Alembic is configured for production use only. See `backend/alembic/README.md` for migration guidance
+- **MCP servers**: Standalone FastAPI processes in `mcp-servers/`; no MCP SDK dependency — uses plain HTTP JSON-RPC. From Docker containers, access host MCP servers via `host.docker.internal`

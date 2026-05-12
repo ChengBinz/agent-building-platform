@@ -1,4 +1,5 @@
 """Conversation CRUD and message handling with real LLM calls."""
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -21,7 +22,7 @@ from app.schemas.chat import (
     SendMessageRequest,
     SendMessageResponse,
 )
-from app.tools.registry import get_tool
+from app.services import tool_service
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ class ChatService:
     ) -> Conversation:
         result = await self.db.execute(
             select(Conversation)
-            .options(selectinload(Conversation.messages))
+            .options(selectinload(Conversation.messages), selectinload(Conversation.agent))
             .where(
                 Conversation.id == conversation_id,
                 Conversation.user_id == user_id,
@@ -206,16 +207,6 @@ class ChatService:
         api_key, base_url = await self._get_api_key(user_id, conv.provider)
         provider = get_provider(conv.provider, api_key, base_url)
 
-        # Inject search context before user message if web search enabled
-        if data.enable_web_search:
-            tool = get_tool("web_search")
-            if tool:
-                search_result = await tool.execute(query=data.content)
-                messages.insert(len(messages) - 1, {
-                    "role": "system",
-                    "content": f"以下是互联网搜索结果，请基于这些信息回答用户的问题：\n\n{search_result}",
-                })
-
         full_response = ""
         async for chunk in provider.generate_stream(messages, conv.model_name):
             full_response += chunk["token"]
@@ -281,25 +272,70 @@ class ChatService:
         api_key, base_url = await self._get_api_key(user_id, conv.provider)
         provider = get_provider(conv.provider, api_key, base_url)
 
+        # Load agent tools (function calling schemas)
+        agent_tool_names: list[str] = []
+        if conv.agent and conv.agent.tools:
+            agent_tool_names = conv.agent.tools
+        tool_schemas = await tool_service.get_tool_schemas(agent_tool_names, user_id, self.db) if agent_tool_names else []
+
         full_response = ""
+        tool_call_messages: list[dict] = []  # Track tool calls for saving
+        MAX_TOOL_ROUNDS = 5
 
         try:
-            if data.enable_web_search:
-                # ── Search-first path: search → inject context → single LLM call ──
-                tool = get_tool("web_search")
-                if tool:
-                    search_result = await tool.execute(query=data.content)
-                    # Insert search context before the last user message
-                    messages.insert(len(messages) - 1, {
-                        "role": "system",
-                        "content": f"以下是互联网搜索结果，请基于这些信息回答用户的问题：\n\n{search_result}",
-                    })
+            # ── LLM call loop with tool calling ──
+            for _ in range(MAX_TOOL_ROUNDS + 1):
+                collected_tool_calls: list[dict] = []
+                round_response = ""
 
-            # Stream LLM response
-            async for chunk in provider.generate_stream(messages, conv.model_name):
-                token = chunk["token"]
-                full_response += token
-                yield f"data: {token}\n\n"
+                stream_kwargs = {}
+                if tool_schemas:
+                    stream_kwargs["tools"] = tool_schemas
+                    stream_kwargs["tool_choice"] = "auto"
+
+                async for chunk in provider.generate_stream(messages, conv.model_name, **stream_kwargs):
+                    if "tool_calls" in chunk:
+                        collected_tool_calls = chunk["tool_calls"]
+                    elif "token" in chunk:
+                        token = chunk["token"]
+                        round_response += token
+                        full_response += token
+                        yield f"data: {token}\n\n"
+
+                # If no tool calls, we're done
+                if not collected_tool_calls:
+                    break
+
+                # ── Execute tool calls ──
+                assistant_tc_msg = {
+                    "role": "assistant",
+                    "content": round_response or None,
+                    "tool_calls": collected_tool_calls,
+                }
+                messages.append(assistant_tc_msg)
+                tool_call_messages.append(assistant_tc_msg)
+
+                for tc in collected_tool_calls:
+                    func_name = tc["function"]["name"]
+                    try:
+                        func_args = json.loads(tc["function"]["arguments"])
+                    except (json.JSONDecodeError, TypeError):
+                        func_args = {}
+
+                    yield f'data: [TOOL_CALL]{json.dumps({"name": func_name, "args": func_args}, ensure_ascii=False)}\n\n'
+
+                    tool_result = await tool_service.execute_tool(func_name, func_args, user_id, self.db)
+
+                    tool_msg = {
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": tool_result,
+                    }
+                    messages.append(tool_msg)
+                    tool_call_messages.append(tool_msg)
+
+                    yield f'data: [TOOL_RESULT]{json.dumps({"name": func_name, "result": tool_result}, ensure_ascii=False)}\n\n'
+
         except Exception as e:
             error_msg = f"LLM 调用失败: {str(e)}"
             yield f"data: {error_msg}\n\n"
@@ -318,7 +354,33 @@ class ChatService:
             created_at=now2,
             updated_at=now2,
         )
+        # Store tool call metadata if any
+        if tool_call_messages:
+            all_tcs = []
+            for msg in tool_call_messages:
+                if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                    for tc in msg["tool_calls"]:
+                        all_tcs.append({
+                            "id": tc["id"],
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"],
+                        })
+            if all_tcs:
+                assistant_msg.tool_calls = all_tcs
         self.db.add(assistant_msg)
+
+        # Save tool result messages
+        for tm in tool_call_messages:
+            if tm.get("role") == "tool":
+                tool_db_msg = Message(
+                    conversation_id=conv.id,
+                    role="tool",
+                    content=tm["content"],
+                    tool_calls=[{"id": tm["tool_call_id"]}],
+                    created_at=now2,
+                    updated_at=now2,
+                )
+                self.db.add(tool_db_msg)
 
         # Update counters
         conv.message_count = (

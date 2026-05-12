@@ -39,7 +39,38 @@ class OpenAICompatProvider(LLMProvider):
             stream=True,
             **kwargs,
         )
+
+        # Accumulate streaming tool calls
+        accumulated_tool_calls: dict[int, dict] = {}
+
         async for chunk in response:
             delta = chunk.choices[0].delta if chunk.choices else None
-            if delta and delta.content:
+            if not delta:
+                continue
+
+            if delta.content:
                 yield {"token": delta.content}
+
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    idx = tc.index
+                    if idx not in accumulated_tool_calls:
+                        accumulated_tool_calls[idx] = {
+                            "id": "",
+                            "type": "function",
+                            "function": {"name": "", "arguments": ""},
+                        }
+                    entry = accumulated_tool_calls[idx]
+                    if tc.id:
+                        entry["id"] = tc.id
+                    if tc.type:
+                        entry["type"] = tc.type
+                    if tc.function:
+                        if tc.function.name:
+                            entry["function"]["name"] = tc.function.name
+                        if tc.function.arguments:
+                            entry["function"]["arguments"] += tc.function.arguments
+
+        # Yield assembled tool calls at the end of the stream
+        if accumulated_tool_calls:
+            yield {"tool_calls": [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]}

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import HTTPException, status
@@ -7,6 +8,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models.mcp import MCPServer, MCPTool
 from app.schemas.mcp import MCPServerCreate, MCPServerUpdate, MCPToolToggle
+from app.services.mcp_client import discover_tools
+
+logger = logging.getLogger(__name__)
 
 
 class MCPService:
@@ -75,9 +79,60 @@ class MCPService:
 
     async def test_server_connection(self, user_id: uuid.UUID, server_id: uuid.UUID) -> dict:
         server = await self.get_server(user_id, server_id)
-        # TODO: Implement actual MCP server connection test
-        # For now, return a placeholder response
-        return {"success": True, "message": f"连接测试成功: {server.url}"}
+        tools = await discover_tools(server.url)
+        if not tools:
+            return {"success": False, "message": f"无法连接到 {server.url} 或服务器未返回工具列表"}
+        return {"success": True, "message": f"连接成功，发现 {len(tools)} 个工具", "tools": tools}
+
+    async def sync_tools(self, user_id: uuid.UUID, server_id: uuid.UUID) -> list[MCPTool]:
+        """Discover tools from MCP server and sync to database."""
+        server = await self.get_server(user_id, server_id)
+        discovered = await discover_tools(server.url)
+        if not discovered:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无法从服务器发现工具")
+
+        # Get existing tools for this server
+        result = await self.db.execute(
+            select(MCPTool).where(MCPTool.server_id == server_id)
+        )
+        existing = {t.name: t for t in result.scalars().all()}
+
+        synced: list[MCPTool] = []
+        seen_names: set[str] = set()
+
+        for tool_def in discovered:
+            name = tool_def.get("name", "")
+            if not name:
+                continue
+            seen_names.add(name)
+
+            if name in existing:
+                # Update existing tool
+                t = existing[name]
+                t.description = tool_def.get("description", "")
+                t.input_schema = tool_def.get("inputSchema", {})
+            else:
+                # Create new tool
+                t = MCPTool(
+                    server_id=server_id,
+                    user_id=user_id,
+                    name=name,
+                    description=tool_def.get("description", ""),
+                    input_schema=tool_def.get("inputSchema", {}),
+                    is_active=True,
+                )
+                self.db.add(t)
+            synced.append(t)
+
+        # Remove tools that no longer exist on the server
+        for name, t in existing.items():
+            if name not in seen_names:
+                await self.db.delete(t)
+
+        await self.db.flush()
+        for t in synced:
+            await self.db.refresh(t)
+        return synced
 
     # ─── MCP Tool CRUD ───
 
