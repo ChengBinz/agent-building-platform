@@ -25,14 +25,14 @@
         :auto-upload="false"
         :on-change="(f: any) => $emit('upload', f)"
         :show-file-list="false"
-        accept=".txt,.md"
+        accept=".txt,.md,.pdf,.docx,.csv"
         drag
         v-loading="uploading"
       >
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
         <div class="el-upload__text">拖拽文件到此处，或 <em>点击选择</em></div>
         <template #tip>
-          <div class="el-upload__tip">仅支持 .txt 和 .md 文件</div>
+          <div class="el-upload__tip">支持 .txt、.md、.pdf、.docx、.csv 文件</div>
         </template>
       </el-upload>
 
