@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 LLMMessage = dict  # {"role": "system"|"user"|"assistant", "content": str}
 
 # Stream chunk from LLM
-StreamChunk = dict  # {"token": str}
+StreamChunk = dict  # {"token": str, "reasoning": Optional[str]}
 
 
 class LLMProvider:

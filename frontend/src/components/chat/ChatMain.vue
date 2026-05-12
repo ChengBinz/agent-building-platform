@@ -37,6 +37,18 @@
           </div>
           <div class="message-content">
             <div class="message-role">{{ msg.role === 'user' ? '我' : currentAgent?.name || 'AI助手' }}</div>
+            <el-collapse
+              v-if="msg.role === 'assistant' && msg.thinking_content"
+              class="thinking-collapse"
+              :model-value="[]"
+            >
+              <el-collapse-item title="思考过程" name="thinking">
+                <div
+                  class="message-text thinking-text"
+                  v-html="renderMarkdown(msg.thinking_content || '')"
+                ></div>
+              </el-collapse-item>
+            </el-collapse>
             <div
               :key="sending && idx === messages.length - 1 ? 's-' + msg.content.length : 'd-' + idx"
               class="message-text"
@@ -279,6 +291,18 @@ function handleSend() {
   font-size: 12px;
   color: #909399;
   margin-bottom: 4px;
+}
+
+.thinking-collapse {
+  margin-bottom: 8px;
+  max-width: 100%;
+}
+
+.thinking-text {
+  margin-top: 4px;
+  font-size: 13px;
+  background: #fafafa;
+  border: 1px dashed #dcdfe6;
 }
 
 .message-text {

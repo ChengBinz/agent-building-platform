@@ -208,10 +208,13 @@ class ChatService:
         provider = get_provider(conv.provider, api_key, base_url)
 
         full_response = ""
+        full_thinking = ""
         async for chunk in provider.generate_stream(messages, conv.model_name):
+            if chunk.get("reasoning"):
+                full_thinking += chunk["reasoning"]
             full_response += chunk["token"]
 
-        if not full_response:
+        if not full_response and not full_thinking:
             full_response = "(模型返回了空回复)"
 
         # Save assistant reply
@@ -220,7 +223,8 @@ class ChatService:
             conversation_id=conv.id,
             role="assistant",
             content=full_response,
-            token_count=len(full_response) // 2,
+            thinking_content=full_thinking or None,
+            token_count=(len(full_response) + len(full_thinking)) // 2,
             created_at=now2,
             updated_at=now2,
         )
@@ -279,6 +283,8 @@ class ChatService:
         tool_schemas = await tool_service.get_tool_schemas(agent_tool_names, user_id, self.db) if agent_tool_names else []
 
         full_response = ""
+        full_thinking = ""
+        in_thinking = False
         tool_call_messages: list[dict] = []  # Track tool calls for saving
         MAX_TOOL_ROUNDS = 5
 
@@ -294,10 +300,22 @@ class ChatService:
                     stream_kwargs["tool_choice"] = "auto"
 
                 async for chunk in provider.generate_stream(messages, conv.model_name, **stream_kwargs):
-                    if "tool_calls" in chunk:
-                        collected_tool_calls = chunk["tool_calls"]
-                    elif "token" in chunk:
-                        token = chunk["token"]
+                    reasoning = chunk.get("reasoning")
+                    token = chunk.get("token", "")
+                    tool_calls = chunk.get("tool_calls")
+
+                    if tool_calls:
+                        collected_tool_calls = tool_calls
+                    if reasoning:
+                        if not in_thinking:
+                            yield "data: [THINKING]\n\n"
+                            in_thinking = True
+                        full_thinking += reasoning
+                        yield f"data: {reasoning}\n\n"
+                    if token:
+                        if in_thinking:
+                            yield "data: [/THINKING]\n\n"
+                            in_thinking = False
                         round_response += token
                         full_response += token
                         yield f"data: {token}\n\n"
@@ -305,6 +323,11 @@ class ChatService:
                 # If no tool calls, we're done
                 if not collected_tool_calls:
                     break
+
+                # Close any open thinking before tool call markers
+                if in_thinking:
+                    yield "data: [/THINKING]\n\n"
+                    in_thinking = False
 
                 # ── Execute tool calls ──
                 assistant_tc_msg = {
@@ -337,10 +360,15 @@ class ChatService:
                     yield f'data: [TOOL_RESULT]{json.dumps({"name": func_name, "result": tool_result}, ensure_ascii=False)}\n\n'
 
         except Exception as e:
+            if in_thinking:
+                yield "data: [/THINKING]\n\n"
             error_msg = f"LLM 调用失败: {str(e)}"
             yield f"data: {error_msg}\n\n"
 
-        if not full_response:
+        if in_thinking:
+            yield "data: [/THINKING]\n\n"
+
+        if not full_response and not full_thinking:
             full_response = "(模型返回了空回复)"
             yield f"data: {full_response}\n\n"
 
@@ -350,7 +378,8 @@ class ChatService:
             conversation_id=conv.id,
             role="assistant",
             content=full_response,
-            token_count=len(full_response) // 2,
+            thinking_content=full_thinking or None,
+            token_count=(len(full_response) + len(full_thinking)) // 2,
             created_at=now2,
             updated_at=now2,
         )
