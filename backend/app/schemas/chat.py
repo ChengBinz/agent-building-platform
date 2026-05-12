@@ -25,6 +25,7 @@ class MessageOut(BaseModel):
     conversation_id: UUID
     role: str
     content: str
+    thinking_content: str | None = None
     token_count: int | None = None
     created_at: datetime
 
