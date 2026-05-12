@@ -25,6 +25,14 @@
           <el-icon><Setting /></el-icon>
           <span>模型配置</span>
         </el-menu-item>
+        <el-menu-item index="/mcp">
+          <el-icon><Connection /></el-icon>
+          <span>MCP</span>
+        </el-menu-item>
+        <el-menu-item index="/skill">
+          <el-icon><MagicStick /></el-icon>
+          <span>技能</span>
+        </el-menu-item>
         <el-menu-item index="/monitoring">
           <el-icon><DataAnalysis /></el-icon>
           <span>监控面板</span>
@@ -45,7 +53,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
-import { ChatDotRound, Folder, Setting, DataAnalysis, UserFilled } from "@element-plus/icons-vue";
+import { ChatDotRound, Folder, Setting, DataAnalysis, UserFilled, Connection, MagicStick } from "@element-plus/icons-vue";
 
 const route = useRoute();
 const appStore = useAppStore();

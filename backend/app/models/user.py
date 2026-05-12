@@ -28,6 +28,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
     agents: Mapped[list["Agent"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
+    mcp_servers: Mapped[list["MCPServer"]] = relationship(back_populates="user", lazy="selectin", passive_deletes=True)
 
 
 class Role(Base, UUIDMixin, TimestampMixin):
