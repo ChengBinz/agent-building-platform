@@ -74,4 +74,4 @@ async def toggle_skill(
     db: AsyncSession = Depends(get_db),
 ):
     service = SkillService(db)
-    return await service.toggle_skill(current_user.id, skill_id, data)
+    return await service.toggle_skill(current_user.id, skill_id, data, is_superuser=current_user.is_superuser)

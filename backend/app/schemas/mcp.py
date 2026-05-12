@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class MCPServerCreate(BaseModel):
@@ -36,6 +36,15 @@ class MCPServerOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("auth_value", mode="before")
+    @classmethod
+    def mask_auth_value(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if len(v) <= 4:
+            return "****"
+        return "*" * (len(v) - 4) + v[-4:]
 
 
 class MCPToolOut(BaseModel):

@@ -112,4 +112,10 @@ class MCPService:
         tool.is_active = data.is_active
         await self.db.flush()
         await self.db.refresh(tool)
+
+        server_result = await self.db.execute(
+            select(MCPServer.name).where(MCPServer.id == tool.server_id)
+        )
+        tool.server_name = server_result.scalar_one_or_none() or "未知服务"
+
         return tool
