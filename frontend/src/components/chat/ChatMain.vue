@@ -76,6 +76,16 @@
               </el-option-group>
             </el-select>
           </div>
+          <div class="search-toggle">
+            <el-tooltip content="开启后可搜索互联网获取实时信息" placement="top">
+              <el-switch
+                v-model="webSearchEnabled"
+                size="small"
+                active-text="联网搜索"
+                :disabled="sending"
+              />
+            </el-tooltip>
+          </div>
           <div class="actions-right">
             <el-button v-if="sending" @click="$emit('cancel')" type="warning" plain size="small">
               停止生成
@@ -110,13 +120,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   createConv: [];
   editAgent: [agent: Agent];
-  send: [text: string];
+  send: [text: string, enableSearch: boolean];
   cancel: [];
   modelChange: [value: string];
   "update:modelValue": [value: string];
 }>();
 
 const inputText = ref("");
+const webSearchEnabled = ref(false);
 const msgContainer = ref<HTMLElement>();
 
 const currentModel = computed({
@@ -174,7 +185,7 @@ function handleSend() {
   const text = inputText.value.trim();
   if (!text || props.sending) return;
   inputText.value = "";
-  emit("send", text);
+  emit("send", text, webSearchEnabled.value);
 }
 </script>
 
@@ -380,5 +391,10 @@ function handleSend() {
   gap: 8px;
   align-items: center;
   margin-left: auto;
+}
+
+.search-toggle {
+  display: flex;
+  align-items: center;
 }
 </style>

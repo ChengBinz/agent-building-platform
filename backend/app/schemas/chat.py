@@ -1,5 +1,6 @@
 """Chat request/response schemas."""
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -25,6 +26,7 @@ class MessageOut(BaseModel):
     conversation_id: UUID
     role: str
     content: str
+    tool_calls: Any | None = None
     token_count: int | None = None
     created_at: datetime
 
@@ -62,6 +64,7 @@ class ConversationListItem(BaseModel):
 
 class SendMessageRequest(BaseModel):
     content: str
+    enable_web_search: bool = False
 
 
 class SendMessageResponse(BaseModel):

@@ -112,6 +112,16 @@ async def test_mcp_server_connection(
     return await service.test_server_connection(current_user.id, server_id)
 
 
+@router.post("/mcp/servers/{server_id}/sync", response_model=list[MCPToolOut])
+async def sync_mcp_tools(
+    server_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = MCPService(db)
+    return await service.sync_tools(current_user.id, server_id)
+
+
 # ─── MCP Tool Endpoints ───
 
 @router.get("/mcp/tools", response_model=list[MCPToolOut])

@@ -14,7 +14,8 @@
 ## 核心功能
 
 - **多模型接入**: OpenAI、Anthropic、DeepSeek、阿里百炼(DashScope)、Ollama，统一 OpenAI 兼容接口
-- **智能体系统**: 创建自定义 Agent，配置系统提示词、模型、关联知识库
+- **智能体系统**: 创建自定义 Agent，配置系统提示词、模型、关联知识库、选择工具
+- **工具调用 (Function Calling)**: LLM 自主决定是否调用工具，支持 MCP 协议扩展工具生态
 - **RAG 知识库**: 支持 txt/md 文档上传，自动分块、向量化、Qdrant 存储，对话时自动检索注入上下文
 - **SSE 流式对话**: 实时流式输出，支持停止生成
 - **对话记忆**: 每 5 轮自动摘要，Redis 缓存，防止上下文溢出
@@ -69,8 +70,27 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 1. **配置模型密钥**: 登录后进入「模型配置」页面，填写各 LLM 提供商和 Embedding 的 API Key
 2. **创建知识库**: 进入「知识库管理」，新建知识库并上传 txt/md 文档，系统自动分块向量化
-3. **创建智能体**: 进入对话页面，创建 Agent 并关联知识库、选择模型
-4. **开始对话**: 选择 Agent 开始对话，系统自动从关联知识库检索相关内容注入上下文
+3. **配置 MCP 工具**（可选）: 启动 MCP Server，在「MCP 管理」页面添加服务器并同步工具
+4. **创建智能体**: 进入对话页面，创建 Agent 并关联知识库、选择模型、选择工具
+5. **开始对话**: 选择 Agent 开始对话，LLM 会根据需要自动调用已配置的工具
+
+### MCP Server 使用
+
+项目内置天气和时区两个 MCP Server，位于 `mcp-servers/` 目录：
+
+```bash
+# 启动天气 MCP Server（端口 9100）
+cd mcp-servers/weather && pip install fastapi httpx uvicorn && python server.py
+
+# 启动时区 MCP Server（端口 9101）
+cd mcp-servers/timezone && pip install fastapi uvicorn && python server.py
+```
+
+在 MCP 管理页面添加服务器：
+- URL: `http://host.docker.internal:9100`（Docker 环境）或 `http://localhost:9100`（非 Docker）
+- 点击「测试连接」确认可用，然后「同步工具」将工具注册到系统
+
+创建 Agent 时在「工具」下拉框中选择可用工具，对话时 LLM 会自动判断是否调用。
 
 ## 数据库管理
 
@@ -116,20 +136,25 @@ docker compose exec backend alembic upgrade head
 ```
 ├── backend/                    # FastAPI 后端
 │   ├── app/
-│   │   ├── api/v1/             # API 路由 (auth, chat, agents, knowledge, models, admin)
+│   │   ├── api/v1/             # API 路由 (auth, chat, agents, knowledge, models, mcp, tools, admin)
 │   │   ├── core/               # 安全、JWT
 │   │   ├── models/             # SQLAlchemy ORM 模型
 │   │   ├── schemas/            # Pydantic 请求/响应模型
-│   │   ├── services/           # 业务逻辑 (ChatService, KnowledgeService, AuthService...)
-│   │   ├── engine/             # LLM 引擎 (OpenAI 兼容统一接口)
+│   │   ├── services/           # 业务逻辑 (chat_service, tool_service, mcp_service, mcp_client...)
+│   │   ├── engine/             # LLM 引擎 (OpenAI 兼容统一接口，支持 tool_calls 流式解析)
+│   │   ├── tools/              # 内置工具注册表 (web_search)
 │   │   ├── rag/                # RAG 流水线 (loader → chunker → embedder → vector_store → retriever)
 │   │   └── db/                 # 数据库和 Redis 连接
 │   └── alembic/                # 数据库迁移
+├── mcp-servers/                # 独立 MCP Server 进程
+│   ├── weather/                # 天气查询 MCP Server (wttr.in)
+│   └── timezone/               # 时区查询 MCP Server (Python stdlib)
 ├── frontend/src/
-│   ├── views/                  # 页面组件 (ChatView, KnowledgeView, ModelsView, Login...)
+│   ├── views/                  # 页面组件 (ChatView, KnowledgeView, ModelsView, McpView, Login...)
 │   ├── components/
 │   │   ├── chat/               # ChatSidebar, ChatMain, AgentDialog
 │   │   ├── knowledge/          # KbConfigDialog, KbDetailDrawer
+│   │   ├── mcp/                # McpServerTab, McpToolTab
 │   │   └── layout/             # AppLayout, HeaderBar, SideNav
 │   ├── stores/                 # Pinia 状态管理 (chat, agent, knowledge, auth)
 │   ├── api/                    # HTTP 客户端 (axios + SSE fetch)

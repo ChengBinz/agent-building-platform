@@ -130,7 +130,7 @@ export const useChatStore = defineStore("chat", () => {
     }
   }
 
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, enableSearch: boolean = false) {
     if (!currentConversation.value) return;
 
     // Cancel any existing stream before starting a new one
@@ -165,14 +165,12 @@ export const useChatStore = defineStore("chat", () => {
       conv.id,
       content,
       (token: string) => {
-        // 通过数组索引访问，确保 Vue 能检测到变化
         const messages = conv.messages;
         if (messages && messages[assistantMsgIndex]) {
           messages[assistantMsgIndex].content += token;
         }
       },
       async () => {
-        // onDone — reload conversation from backend first, then clear sending flag
         streamController = null;
         try {
           const { data } = await chatApi.getConversation(conv.id);
@@ -183,7 +181,6 @@ export const useChatStore = defineStore("chat", () => {
         sending.value = false;
       },
       (err: string) => {
-        // onError
         const messages = conv.messages;
         if (messages && messages[assistantMsgIndex] && !messages[assistantMsgIndex].content) {
           messages[assistantMsgIndex].content = `发送失败: ${err}`;
@@ -192,6 +189,19 @@ export const useChatStore = defineStore("chat", () => {
         ElMessage.error(`发送失败: ${err}`);
         sending.value = false;
         streamController = null;
+      },
+      enableSearch,
+      (toolCall) => {
+        const messages = conv.messages;
+        if (messages && messages[assistantMsgIndex]) {
+          messages[assistantMsgIndex].content += `\n\n🔧 调用工具: ${toolCall.name}(${JSON.stringify(toolCall.args)})\n`;
+        }
+      },
+      (toolResult) => {
+        const messages = conv.messages;
+        if (messages && messages[assistantMsgIndex]) {
+          messages[assistantMsgIndex].content += `📋 结果: ${toolResult.result}\n\n`;
+        }
       },
     );
   }

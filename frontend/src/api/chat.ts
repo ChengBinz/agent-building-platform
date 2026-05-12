@@ -34,12 +34,25 @@ export async function sendMessage(conversationId: string, content: string) {
   return apiClient.post(`/conversations/${conversationId}/send`, { content });
 }
 
+export interface ToolCallEvent {
+  name: string;
+  args: Record<string, any>;
+}
+
+export interface ToolResultEvent {
+  name: string;
+  result: string;
+}
+
 export function sendMessageStream(
   conversationId: string,
   content: string,
   onToken: (token: string) => void,
   onDone: () => void,
   onError: (err: string) => void,
+  enableWebSearch: boolean = false,
+  onToolCall?: (event: ToolCallEvent) => void,
+  onToolResult?: (event: ToolResultEvent) => void,
 ): AbortController {
   const controller = new AbortController();
   const token = localStorage.getItem("access_token") || "";
@@ -50,7 +63,7 @@ export function sendMessageStream(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, enable_web_search: enableWebSearch }),
     signal: controller.signal,
   })
     .then(async (response) => {
@@ -76,7 +89,17 @@ export function sendMessageStream(
               onDone();
               return;
             }
-            onToken(data);
+            if (data.startsWith("[TOOL_CALL]") && onToolCall) {
+              try {
+                onToolCall(JSON.parse(data.slice(12)));
+              } catch { /* ignore parse error */ }
+            } else if (data.startsWith("[TOOL_RESULT]") && onToolResult) {
+              try {
+                onToolResult(JSON.parse(data.slice(14)));
+              } catch { /* ignore parse error */ }
+            } else {
+              onToken(data);
+            }
           }
         }
       }

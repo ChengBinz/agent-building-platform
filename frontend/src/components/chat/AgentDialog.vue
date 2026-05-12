@@ -43,6 +43,26 @@
           <el-option v-for="kb in knowledgeBases" :key="kb.id" :label="kb.name" :value="kb.id" />
         </el-select>
       </el-form-item>
+      <el-form-item label="工具">
+        <el-select
+          v-model="form.tools"
+          multiple
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="选择可用工具（可选）"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="t in availableTools"
+            :key="t.name"
+            :label="t.name"
+            :value="t.name"
+          >
+            <span>{{ t.name }}</span>
+            <span style="color: #999; font-size: 12px; margin-left: 8px">{{ t.description }}</span>
+          </el-option>
+        </el-select>
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="$emit('update:visible', false)">取消</el-button>
@@ -54,7 +74,9 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { listKnowledgeBases } from "@/api/knowledge";
+import { listTools } from "@/api/tools";
 import type { Agent, KnowledgeBase, ProviderWithKey } from "@/types";
+import type { ToolInfo } from "@/api/tools";
 
 const props = defineProps<{
   visible: boolean;
@@ -68,6 +90,7 @@ const emit = defineEmits<{
 }>();
 
 const knowledgeBases = ref<KnowledgeBase[]>([]);
+const availableTools = ref<ToolInfo[]>([]);
 const form = ref({
   name: "",
   description: "",
@@ -75,6 +98,7 @@ const form = ref({
   system_prompt: "",
   modelSelect: "",
   kb_ids: [] as string[],
+  tools: [] as string[],
 });
 
 watch(
@@ -86,6 +110,11 @@ watch(
       const { data } = await listKnowledgeBases();
       knowledgeBases.value = data;
     } catch { /* ignore */ }
+    // Load available tools
+    try {
+      const { data } = await listTools();
+      availableTools.value = data;
+    } catch { /* ignore */ }
     // Populate form from agent
     const a = props.agent;
     if (a) {
@@ -96,15 +125,16 @@ watch(
         system_prompt: a.system_prompt || "",
         modelSelect: a.provider && a.model_name ? `${a.provider}:${a.model_name}` : "",
         kb_ids: a.kb_ids ? [...a.kb_ids] : [],
+        tools: a.tools ? [...a.tools] : [],
       };
     } else {
-      form.value = { name: "", description: "", avatar: "", system_prompt: "", modelSelect: "", kb_ids: [] };
+      form.value = { name: "", description: "", avatar: "", system_prompt: "", modelSelect: "", kb_ids: [], tools: [] };
     }
   },
 );
 
 function handleSave() {
-  const { name, description, avatar, system_prompt, modelSelect, kb_ids } = form.value;
+  const { name, description, avatar, system_prompt, modelSelect, kb_ids, tools } = form.value;
   const agentName = name.trim() || "新的智能体";
   let provider: string | undefined;
   let modelName: string | undefined;
@@ -121,6 +151,7 @@ function handleSave() {
     model_name: modelName,
     provider,
     kb_ids: kb_ids.length > 0 ? kb_ids : undefined,
+    tools: tools.length > 0 ? tools : undefined,
   });
 }
 </script>

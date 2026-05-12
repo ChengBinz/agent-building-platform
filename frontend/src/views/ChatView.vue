@@ -182,8 +182,8 @@ async function handleModelChange(value: string) {
   await chatStore.updateConversation(chatStore.currentConversation.id, { model_name: modelName, provider });
 }
 
-async function handleSend(text: string) {
-  await chatStore.sendMessage(text);
+async function handleSend(text: string, enableSearch: boolean = false) {
+  await chatStore.sendMessage(text, enableSearch);
 }
 </script>
 

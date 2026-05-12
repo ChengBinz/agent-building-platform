@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     EMBEDDING_API_KEY: str = ""
     EMBEDDING_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+    # Web Search
+    TAVILY_API_KEY: str | None = None
+
     # RAG
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 50
