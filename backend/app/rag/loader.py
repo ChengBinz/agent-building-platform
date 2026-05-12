@@ -83,16 +83,35 @@ def _load_docx(file_path: str) -> str:
     root = ET.fromstring(xml_content)
     # docx XML namespace
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-    paragraphs = []
-    for p in root.iterfind(".//w:p", ns):
-        texts = []
-        for t in p.iterfind(".//w:t", ns):
-            if t.text:
-                texts.append(t.text)
-        line = "".join(texts).strip()
-        if line:
-            paragraphs.append(line)
-    return "\n".join(paragraphs)
+
+    # Collect all text-bearing blocks: paragraphs (<w:p>) and table rows (<w:tr>)
+    text_blocks: list[str] = []
+    # Use iter() to traverse the whole tree — catches paragraphs inside tables too
+    for elem in root.iter():
+        tag = elem.tag
+        if tag == f"{{{ns['w']}}}p":
+            line = _extract_docx_text(elem, ns)
+            if line:
+                text_blocks.append(line)
+        elif tag == f"{{{ns['w']}}}tr":
+            # Table row: join cell texts with tabs for readability
+            cells = []
+            for tc in elem.iterfind(".//w:tc", ns):
+                cell_text = _extract_docx_text(tc, ns)
+                cells.append(cell_text)
+            row_text = "\t".join(c for c in cells if c)
+            if row_text:
+                text_blocks.append(row_text)
+    return "\n".join(text_blocks)
+
+
+def _extract_docx_text(elem, ns: dict[str, str]) -> str:
+    """Extract all <w:t> text inside an XML element, joined."""
+    texts = []
+    for t in elem.iterfind(".//w:t", ns):
+        if t.text:
+            texts.append(t.text)
+    return "".join(texts).strip()
 
 
 def _load_csv(file_path: str) -> str:
