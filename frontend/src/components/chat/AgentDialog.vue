@@ -94,7 +94,7 @@ watch(
         description: a.description || "",
         avatar: a.avatar || "",
         system_prompt: a.system_prompt || "",
-        modelSelect: a.provider ? `${a.provider}:${a.model_name}` : "",
+        modelSelect: a.provider && a.model_name ? `${a.provider}:${a.model_name}` : "",
         kb_ids: a.kb_ids ? [...a.kb_ids] : [],
       };
     } else {
@@ -106,8 +106,8 @@ watch(
 function handleSave() {
   const { name, description, avatar, system_prompt, modelSelect, kb_ids } = form.value;
   const agentName = name.trim() || "新的智能体";
-  let provider = "";
-  let modelName = "";
+  let provider: string | undefined;
+  let modelName: string | undefined;
   if (modelSelect) {
     const [p, m] = modelSelect.split(":");
     provider = p;
