@@ -43,7 +43,7 @@ def _load_text_file(file_path: str) -> str:
 
 def _load_pdf(file_path: str) -> str:
     """Extract text from a PDF file using pypdf2."""
-    from pypdf2 import PdfReader
+    from PyPDF2 import PdfReader
 
     reader = PdfReader(file_path)
     parts = []
