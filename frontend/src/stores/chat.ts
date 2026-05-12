@@ -168,9 +168,6 @@ export const useChatStore = defineStore("chat", () => {
       () => {
         // onThinkingStart — placeholder already has thinking_content: ""
       },
-      () => {
-        // onThinkingStart — placeholder already has thinking_content: ""
-      },
       (token: string) => {
         // onThinkingToken
         const messages = conv.messages;
