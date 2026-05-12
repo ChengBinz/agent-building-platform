@@ -72,6 +72,45 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 3. **创建智能体**: 进入对话页面，创建 Agent 并关联知识库、选择模型
 4. **开始对话**: 选择 Agent 开始对话，系统自动从关联知识库检索相关内容注入上下文
 
+## 数据库管理
+
+### 开发阶段（当前）
+
+使用 SQLAlchemy `create_all` 自动建表，**无需手动执行迁移**。
+
+后端启动时会自动：
+1. 检查数据库中是否存在表
+2. 如果不存在则自动创建
+3. 已存在的表不会被修改或删除
+
+**添加新表的流程**：
+1. 在 `backend/app/models/` 下创建新的 ORM 模型
+2. 在 `backend/app/models/__init__.py` 中导入新模型
+3. 重启后端服务，新表会自动创建
+
+**修改现有表结构**：
+- 直接修改 ORM 模型
+- 删除旧表：`docker compose exec postgres psql -U agent -d agent_platform -c "DROP TABLE table_name CASCADE;"`
+- 重启后端服务
+
+### 上线阶段（TODO）
+
+上线后使用 Alembic 管理数据库版本：
+
+```bash
+# 1. 初始化迁移版本
+docker compose exec backend alembic revision --autogenerate -m "init"
+
+# 2. 执行迁移
+docker compose exec backend alembic upgrade head
+
+# 3. 后续变更
+docker compose exec backend alembic revision --autogenerate -m "描述"
+docker compose exec backend alembic upgrade head
+```
+
+详细说明请参考 [Alembic 迁移指南](backend/alembic/README.md)
+
 ## 项目结构
 
 ```

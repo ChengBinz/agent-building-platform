@@ -213,3 +213,48 @@ export interface ApiKeyInfo {
   is_active: boolean;
   created_at: string;
 }
+
+// ── MCP Types ──
+
+export interface MCPServer {
+  id: string;
+  user_id: string;
+  name: string;
+  url: string;
+  transport: string;
+  auth_type: string;
+  auth_value?: string;
+  is_active: boolean;
+  tool_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MCPTool {
+  id: string;
+  server_id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  input_schema?: Record<string, any>;
+  is_active: boolean;
+  server_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Skill Types ──
+
+export interface Skill {
+  id: string;
+  user_id?: string;
+  name: string;
+  description?: string;
+  skill_type: string;
+  content?: string;
+  is_system: boolean;
+  is_active: boolean;
+  version: string;
+  created_at: string;
+  updated_at: string;
+}

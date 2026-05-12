@@ -18,7 +18,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 # Seed default admin user (admin / admin123) + roles
 docker compose exec backend python /app/scripts/seed.py
 
-# Run DB migrations manually
+# Run DB migrations manually (production only; dev uses SQLAlchemy create_all)
 docker compose exec backend alembic upgrade head
 docker compose exec backend alembic revision --autogenerate -m "description"
 
@@ -29,7 +29,7 @@ cd frontend && npm run build
 docker compose logs -f backend
 ```
 
-Backend runs `alembic upgrade head && uvicorn` automatically on container start.
+Backend uses SQLAlchemy `create_all` for automatic table creation on startup (dev convenience). Alembic is configured but reserved for production migrations.
 
 **No tests exist** — neither backend (`backend/tests/` is empty) nor frontend (no test runner configured).
 
@@ -77,13 +77,15 @@ Embedding config is user-provided via the Models page (provider="embedding") or 
 
 ### Database models
 
-10 tables: `users`, `roles`, `user_roles` (M2M), `api_keys`, `conversations`, `messages`, `conversation_memories`, `knowledge_bases`, `documents`, `usage_logs`.
+16 tables: `users`, `roles`, `user_roles` (M2M), `api_keys`, `conversations`, `messages`, `conversation_memories`, `knowledge_bases`, `documents`, `usage_logs`, `llm_models`, `default_models`, `agents`, `mcp_servers`, `mcp_tools`, `skills`.
 
 Key relationships:
 - Conversations have `agent_id` FK and `kb_ids` (UUID array) for RAG
 - Knowledge bases have per-KB `embedding_api_key`, `embedding_base_url`, `embedding_model`
 - Documents belong to knowledge bases with status tracking (pending → processing → completed/failed)
 - Documents store `qdrant_point_ids` (UUID array) for vector cleanup
+- MCP servers have user_id FK; MCP tools have server_id FK and user_id FK
+- Skills have user_id FK (nullable for system skills), `is_system` flag distinguishes built-in vs user-created
 
 ### Conversation Memory System
 
@@ -105,7 +107,10 @@ Multi-turn memory via LLM summarization with Redis caching:
 | `/api/v1/` | `knowledge.py` | knowledge-bases CRUD + document upload/list/delete |
 | `/api/v1/` | `models.py` | static model catalog per provider |
 | `/api/v1/` | `monitoring.py` | usage summary + by-model breakdown |
+| `/api/v1/` | `users.py` | user profile management |
 | `/api/v1/` | `admin.py` | user management + system stats (superuser only) |
+| `/api/v1/mcp/` | `mcp.py` | MCP servers CRUD + connection test; MCP tools list + toggle |
+| `/api/v1/skills` | `skill.py` | system skills list; user skills CRUD + toggle |
 | `/health` | `main.py` | health check |
 
 ### SSE Streaming Pattern
@@ -123,6 +128,8 @@ views/
   ChatView.vue          → components/chat/ChatSidebar, ChatMain, AgentDialog
   KnowledgeView.vue     → components/knowledge/KbConfigDialog, KbDetailDrawer
   ModelsView.vue        — model catalog cards with API key config
+  McpView.vue           → components/mcp/McpServerTab, McpToolTab (2 tabs)
+  SkillView.vue         → components/skill/SystemSkillTab, UserSkillTab (2 tabs)
   Login.vue             — tabbed user/admin login+register
   MonitorView.vue       — usage statistics
   admin/AdminUsers.vue  — user management (superuser)
@@ -174,3 +181,4 @@ views/
 - **Database URL**: Alembic uses sync URL (`DATABASE_URL_SYNC` via psycopg2); app uses async URL via asyncpg
 - **Dependencies**: Python via `requirements.txt`; Node via `package.json` + `package-lock.json`
 - **Admin registration gate**: Requires `ADMIN_REGISTRATION_CODE` env var
+- **Database migrations**: Dev uses SQLAlchemy `create_all` (auto-create new tables on startup). Alembic is configured for production use only. See `backend/alembic/README.md` for migration guidance
