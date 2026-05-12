@@ -5,13 +5,17 @@ from openai import AsyncOpenAI
 
 from app.engine.base import LLMProvider, StreamChunk
 
+# XML tags used by reasoning models to wrap thinking content
+TAG_START = b'\x3cthink\x3e'.decode()   # <think>
+TAG_END = b'\x3c/think\x3e'.decode()     # </think>
+
 
 class OpenAICompatProvider(LLMProvider):
     """Provider for any OpenAI-compatible API.
 
     Separates reasoning/thinking content from the main response by:
     1. Capturing delta.reasoning_content (standard field for reasoning models)
-    2. Parsing 思维链...<｜end▁of▁thinking｜> tags from delta.content as a fallback
+    2. Parsing <think>...</think> tags from delta.content as a fallback
     """
 
     def __init__(self, api_key: str, base_url: str):
@@ -37,29 +41,26 @@ class OpenAICompatProvider(LLMProvider):
                 yield {"token": "", "reasoning": delta.reasoning_content}
                 continue
 
-            # 2) Parse 思维链... tags from content (legacy / alternative models)
+            # 2) Parse <think>...</think> tags from content
             if delta.content:
                 remaining = delta.content
                 while remaining:
                     if in_think:
-                        end_idx = remaining.find("</think>")
+                        end_idx = remaining.find(TAG_END)
                         if end_idx != -1:
-                            # End of thinking block
-                            thinking_part = remaining[:end_idx]
-                            remaining = remaining[end_idx + len("</think>"):]
+                            if end_idx > 0:
+                                yield {"token": "", "reasoning": remaining[:end_idx]}
+                            remaining = remaining[end_idx + len(TAG_END):]
                             in_think = False
-                            if thinking_part:
-                                yield {"token": "", "reasoning": thinking_part}
                         else:
                             yield {"token": "", "reasoning": remaining}
                             break
                     else:
-                        start_idx = remaining.find("</think>")
+                        start_idx = remaining.find(TAG_START)
                         if start_idx != -1:
-                            # Content before think tag
                             if start_idx > 0:
                                 yield {"token": remaining[:start_idx], "reasoning": None}
-                            remaining = remaining[start_idx + len("</think>"):]
+                            remaining = remaining[start_idx + len(TAG_START):]
                             in_think = True
                         else:
                             yield {"token": remaining, "reasoning": None}
