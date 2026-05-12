@@ -37,12 +37,16 @@ export async function sendMessage(conversationId: string, content: string) {
 export function sendMessageStream(
   conversationId: string,
   content: string,
+  onThinkingStart: () => void,
+  onThinkingToken: (token: string) => void,
+  onThinkingEnd: () => void,
   onToken: (token: string) => void,
   onDone: () => void,
   onError: (err: string) => void,
 ): AbortController {
   const controller = new AbortController();
   const token = localStorage.getItem("access_token") || "";
+  let inThinking = false;
 
   fetch(`/api/v1/conversations/${conversationId}/send-stream`, {
     method: "POST",
@@ -70,15 +74,40 @@ export function sendMessageStream(
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") {
-              onDone();
-              return;
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+
+          if (data === "[THINKING]") {
+            if (!inThinking) {
+              inThinking = true;
+              onThinkingStart();
             }
+            continue;
+          }
+          if (data === "[/THINKING]") {
+            if (inThinking) {
+              inThinking = false;
+              onThinkingEnd();
+            }
+            continue;
+          }
+          if (data === "[DONE]") {
+            if (inThinking) {
+              onThinkingEnd();
+            }
+            onDone();
+            return;
+          }
+
+          if (inThinking) {
+            onThinkingToken(data);
+          } else {
             onToken(data);
           }
         }
+      }
+      if (inThinking) {
+        onThinkingEnd();
       }
       onDone();
     })

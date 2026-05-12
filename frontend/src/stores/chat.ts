@@ -156,6 +156,7 @@ export const useChatStore = defineStore("chat", () => {
       conversation_id: conv.id,
       role: "assistant",
       content: "",
+      thinking_content: "",
       created_at: new Date().toISOString(),
     });
 
@@ -164,8 +165,22 @@ export const useChatStore = defineStore("chat", () => {
     streamController = chatApi.sendMessageStream(
       conv.id,
       content,
+      () => {
+        // onThinkingStart — placeholder already has thinking_content: ""
+      },
       (token: string) => {
-        // 通过数组索引访问，确保 Vue 能检测到变化
+        // onThinkingToken
+        const messages = conv.messages;
+        if (messages && messages[assistantMsgIndex]) {
+          messages[assistantMsgIndex].thinking_content =
+            (messages[assistantMsgIndex].thinking_content || "") + token;
+        }
+      },
+      () => {
+        // onThinkingEnd
+      },
+      (token: string) => {
+        // onToken
         const messages = conv.messages;
         if (messages && messages[assistantMsgIndex]) {
           messages[assistantMsgIndex].content += token;

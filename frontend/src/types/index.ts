@@ -67,6 +67,7 @@ export interface Message {
   conversation_id: string;
   role: "user" | "assistant" | "system" | "tool";
   content: string;
+  thinking_content?: string;
   token_count?: number;
   created_at: string;
 }
