@@ -130,7 +130,7 @@ export const useChatStore = defineStore("chat", () => {
     }
   }
 
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, enableSearch: boolean = false) {
     if (!currentConversation.value) return;
 
     // Cancel any existing stream before starting a new one
@@ -193,6 +193,7 @@ export const useChatStore = defineStore("chat", () => {
         sending.value = false;
         streamController = null;
       },
+      enableSearch,
     );
   }
 

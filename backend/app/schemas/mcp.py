@@ -37,7 +37,7 @@ class MCPServerOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("auth_value", mode="before")
+    @field_validator("auth_value")
     @classmethod
     def mask_auth_value(cls, v: str | None) -> str | None:
         if v is None:

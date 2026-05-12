@@ -23,6 +23,7 @@
         <template #default="{ row }">
           <el-switch
             v-model="row.is_active"
+            :disabled="!auth.isAdmin"
             @change="handleToggleActive(row)"
             size="small"
           />
@@ -72,9 +73,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useSkillStore } from "@/stores/skill";
+import { useAuthStore } from "@/stores/auth";
 import type { Skill } from "@/types";
 
 const skillStore = useSkillStore();
+const auth = useAuthStore();
 const loading = computed(() => skillStore.loading);
 const skills = computed(() => skillStore.systemSkills);
 

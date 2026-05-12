@@ -21,6 +21,7 @@ from app.schemas.chat import (
     SendMessageRequest,
     SendMessageResponse,
 )
+from app.tools.registry import get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +206,16 @@ class ChatService:
         api_key, base_url = await self._get_api_key(user_id, conv.provider)
         provider = get_provider(conv.provider, api_key, base_url)
 
+        # Inject search context before user message if web search enabled
+        if data.enable_web_search:
+            tool = get_tool("web_search")
+            if tool:
+                search_result = await tool.execute(query=data.content)
+                messages.insert(len(messages) - 1, {
+                    "role": "system",
+                    "content": f"以下是互联网搜索结果，请基于这些信息回答用户的问题：\n\n{search_result}",
+                })
+
         full_response = ""
         async for chunk in provider.generate_stream(messages, conv.model_name):
             full_response += chunk["token"]
@@ -266,12 +277,25 @@ class ChatService:
         # Build message history
         messages = await self._build_messages(conv, data.content)
 
-        # Get API key and call LLM
+        # Get API key and provider
         api_key, base_url = await self._get_api_key(user_id, conv.provider)
         provider = get_provider(conv.provider, api_key, base_url)
 
         full_response = ""
+
         try:
+            if data.enable_web_search:
+                # ── Search-first path: search → inject context → single LLM call ──
+                tool = get_tool("web_search")
+                if tool:
+                    search_result = await tool.execute(query=data.content)
+                    # Insert search context before the last user message
+                    messages.insert(len(messages) - 1, {
+                        "role": "system",
+                        "content": f"以下是互联网搜索结果，请基于这些信息回答用户的问题：\n\n{search_result}",
+                    })
+
+            # Stream LLM response
             async for chunk in provider.generate_stream(messages, conv.model_name):
                 token = chunk["token"]
                 full_response += token
@@ -282,6 +306,7 @@ class ChatService:
 
         if not full_response:
             full_response = "(模型返回了空回复)"
+            yield f"data: {full_response}\n\n"
 
         # Save assistant reply
         now2 = datetime.now(timezone.utc)
@@ -334,7 +359,27 @@ class ChatService:
             .order_by(Message.created_at.asc())
         )
         for msg in result.scalars().all():
-            messages.append({"role": msg.role, "content": msg.content})
+            entry = {"role": msg.role, "content": msg.content}
+            # Preserve tool_calls data for assistant messages that invoked tools
+            if msg.role == "assistant" and msg.tool_calls:
+                entry["tool_calls"] = [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {
+                            "name": tc["name"],
+                            "arguments": tc.get("arguments", "{}"),
+                        },
+                    }
+                    for tc in msg.tool_calls
+                    if "id" in tc
+                ]
+            # Tool result messages need tool_call_id
+            if msg.role == "tool" and msg.tool_calls:
+                tc_id = msg.tool_calls[0].get("id") if msg.tool_calls else None
+                if tc_id:
+                    entry["tool_call_id"] = tc_id
+            messages.append(entry)
 
         return messages
 

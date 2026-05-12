@@ -92,13 +92,14 @@ class MCPService:
         result = await self.db.execute(stmt)
         tools = list(result.scalars().all())
 
-        # Attach server name
-        for tool in tools:
+        if tools:
+            server_ids = {tool.server_id for tool in tools}
             server_result = await self.db.execute(
-                select(MCPServer.name).where(MCPServer.id == tool.server_id)
+                select(MCPServer.id, MCPServer.name).where(MCPServer.id.in_(server_ids))
             )
-            server_name = server_result.scalar_one_or_none()
-            tool.server_name = server_name if server_name else "未知服务"
+            server_map = dict(server_result.all())
+            for tool in tools:
+                tool.server_name = server_map.get(tool.server_id, "未知服务")
 
         return tools
 

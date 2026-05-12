@@ -62,6 +62,7 @@ class ConversationListItem(BaseModel):
 
 class SendMessageRequest(BaseModel):
     content: str
+    enable_web_search: bool = False
 
 
 class SendMessageResponse(BaseModel):

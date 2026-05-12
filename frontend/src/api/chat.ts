@@ -40,6 +40,7 @@ export function sendMessageStream(
   onToken: (token: string) => void,
   onDone: () => void,
   onError: (err: string) => void,
+  enableWebSearch: boolean = false,
 ): AbortController {
   const controller = new AbortController();
   const token = localStorage.getItem("access_token") || "";
@@ -50,7 +51,7 @@ export function sendMessageStream(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, enable_web_search: enableWebSearch }),
     signal: controller.signal,
   })
     .then(async (response) => {
