@@ -29,7 +29,7 @@ cd frontend && npm run build
 docker compose logs -f backend
 ```
 
-Backend runs `alembic upgrade head && uvicorn` automatically on container start.
+Production backend runs `alembic upgrade head && uvicorn` automatically on container start. Dev mode (`docker-compose.dev.yml`) runs only `uvicorn --reload` — run migrations manually.
 
 **No tests exist** — neither backend (`backend/tests/` is empty) nor frontend (no test runner configured).
 
@@ -105,6 +105,7 @@ Multi-turn memory via LLM summarization with Redis caching:
 | `/api/v1/` | `knowledge.py` | knowledge-bases CRUD + document upload/list/delete |
 | `/api/v1/` | `models.py` | static model catalog per provider |
 | `/api/v1/` | `monitoring.py` | usage summary + by-model breakdown |
+| `/api/v1/` | `users.py` | user profile management |
 | `/api/v1/` | `admin.py` | user management + system stats (superuser only) |
 | `/health` | `main.py` | health check |
 
