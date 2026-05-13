@@ -40,7 +40,7 @@
             <el-collapse
               v-if="msg.role === 'assistant' && msg.thinking_content"
               class="thinking-collapse"
-              :model-value="[]"
+              :model-value="sending && idx === messages.length - 1 ? ['thinking'] : []"
             >
               <el-collapse-item title="思考过程" name="thinking">
                 <div
@@ -172,6 +172,16 @@ watch(
     const msgs = props.messages;
     if (!msgs.length) return "";
     return msgs[msgs.length - 1].content;
+  },
+  () => scrollToBottom(),
+);
+
+// Auto-scroll on thinking/tool call updates
+watch(
+  () => {
+    const msgs = props.messages;
+    if (!msgs.length) return "";
+    return msgs[msgs.length - 1].thinking_content;
   },
   () => scrollToBottom(),
 );

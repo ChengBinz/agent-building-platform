@@ -208,16 +208,10 @@ export const useChatStore = defineStore("chat", () => {
       },
       enableSearch,
       (toolCall) => {
-        const messages = conv.messages;
-        if (messages && messages[assistantMsgIndex]) {
-          messages[assistantMsgIndex].content += `\n\n🔧 调用工具: ${toolCall.name}(${JSON.stringify(toolCall.args)})\n`;
-        }
+        // 工具调用信息不展示给用户，仅作为 LLM 上下文
       },
       (toolResult) => {
-        const messages = conv.messages;
-        if (messages && messages[assistantMsgIndex]) {
-          messages[assistantMsgIndex].content += `📋 结果: ${toolResult.result}\n\n`;
-        }
+        // 工具结果不展示给用户，LLM 会基于结果生成最终回答
       },
     );
   }
