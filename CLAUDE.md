@@ -16,10 +16,9 @@ docker compose up -d --build
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # Seed default admin user (admin / admin123) + roles
-docker compose exec backend python /app/scripts/seed.py
+docker compose exec backend python scripts/seed.py
 
-# Run DB migrations manually (production only; dev uses SQLAlchemy create_all)
-docker compose exec backend alembic upgrade head
+# Generate new migration after model changes
 docker compose exec backend alembic revision --autogenerate -m "description"
 
 # Frontend type-check + build
@@ -29,7 +28,7 @@ cd frontend && npm run build
 docker compose logs -f backend
 ```
 
-Backend uses SQLAlchemy `create_all` for automatic table creation on startup (dev convenience). Alembic is configured but reserved for production migrations.
+Backend automatically runs `alembic upgrade head` on startup via `scripts/start.sh`. After changing models, generate a new migration with `alembic revision --autogenerate`.
 
 **No tests exist** — neither backend (`backend/tests/` is empty) nor frontend (no test runner configured).
 
@@ -224,5 +223,5 @@ views/
 - **Database URL**: Alembic uses sync URL (`DATABASE_URL_SYNC` via psycopg2); app uses async URL via asyncpg
 - **Dependencies**: Python via `requirements.txt`; Node via `package.json` + `package-lock.json`
 - **Admin registration gate**: Requires `ADMIN_REGISTRATION_CODE` env var
-- **Database migrations**: Dev uses SQLAlchemy `create_all` (auto-create new tables on startup). Alembic is configured for production use only. See `backend/alembic/README.md` for migration guidance
+- **Database migrations**: Backend runs `alembic upgrade head` on startup via `scripts/start.sh`. After model changes, generate migration with `alembic revision --autogenerate`
 - **MCP servers**: Standalone FastAPI processes in `mcp-servers/`; no MCP SDK dependency — uses plain HTTP JSON-RPC. From Docker containers, access host MCP servers via `host.docker.internal`
