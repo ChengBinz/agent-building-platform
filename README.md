@@ -74,62 +74,32 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 4. **创建智能体**: 进入对话页面，创建 Agent 并关联知识库、选择模型、选择工具
 5. **开始对话**: 选择 Agent 开始对话，LLM 会根据需要自动调用已配置的工具
 
-### MCP Server 使用
+### 首次配置 MCP 工具
 
-项目内置天气和时区两个 MCP Server，位于 `mcp-servers/` 目录：
+项目内置三个 MCP Server，随 Docker 自动启动：
 
-```bash
-# 启动天气 MCP Server（端口 9100）
-cd mcp-servers/weather && pip install fastapi httpx uvicorn && python server.py
+| 名称 | URL | 功能 |
+|------|-----|------|
+| 天气 | `http://mcp-weather:9100` | 查询城市天气 |
+| 时区 | `http://mcp-timezone:9101` | 查询时区时间 |
+| 网页搜索 | `http://mcp-web-search:9102` | 搜索互联网（需配置 `TAVILY_API_KEY`） |
 
-# 启动时区 MCP Server（端口 9101）
-cd mcp-servers/timezone && pip install fastapi uvicorn && python server.py
-```
+在 **MCP 管理** 页面操作：
+1. 点击「新增服务器」，填入名称和 URL（如 `http://mcp-weather:9100`）
+2. 点击「测试连接」确认可用
+3. 点击「同步工具」导入工具列表
+4. 创建/编辑 Agent 时，在工具列表中选择需要的工具
 
-在 MCP 管理页面添加服务器：
-- URL: `http://host.docker.internal:9100`（Docker 环境）或 `http://localhost:9100`（非 Docker）
-- 点击「测试连接」确认可用，然后「同步工具」将工具注册到系统
-
-创建 Agent 时在「工具」下拉框中选择可用工具，对话时 LLM 会自动判断是否调用。
+注册一次即可，配置保存在数据库中，重启不会丢失。
 
 ## 数据库管理
 
-### 开发阶段（当前）
+使用 Alembic 管理数据库迁移，后端启动时自动运行 `alembic upgrade head`。
 
-使用 SQLAlchemy `create_all` 自动建表，**无需手动执行迁移**。
-
-后端启动时会自动：
-1. 检查数据库中是否存在表
-2. 如果不存在则自动创建
-3. 已存在的表不会被修改或删除
-
-**添加新表的流程**：
-1. 在 `backend/app/models/` 下创建新的 ORM 模型
-2. 在 `backend/app/models/__init__.py` 中导入新模型
-3. 重启后端服务，新表会自动创建
-
-**修改现有表结构**：
-- 直接修改 ORM 模型
-- 删除旧表：`docker compose exec postgres psql -U agent -d agent_platform -c "DROP TABLE table_name CASCADE;"`
-- 重启后端服务
-
-### 上线阶段（TODO）
-
-上线后使用 Alembic 管理数据库版本：
-
-```bash
-# 1. 初始化迁移版本
-docker compose exec backend alembic revision --autogenerate -m "init"
-
-# 2. 执行迁移
-docker compose exec backend alembic upgrade head
-
-# 3. 后续变更
-docker compose exec backend alembic revision --autogenerate -m "描述"
-docker compose exec backend alembic upgrade head
-```
-
-详细说明请参考 [Alembic 迁移指南](backend/alembic/README.md)
+**修改表结构的流程**：
+1. 修改 `backend/app/models/` 下的 ORM 模型
+2. 生成迁移脚本：`docker compose exec backend alembic revision --autogenerate -m "描述"`
+3. 重启后端服务，迁移自动应用
 
 ## 项目结构
 
@@ -142,13 +112,16 @@ docker compose exec backend alembic upgrade head
 │   │   ├── schemas/            # Pydantic 请求/响应模型
 │   │   ├── services/           # 业务逻辑 (chat_service, tool_service, mcp_service, mcp_client...)
 │   │   ├── engine/             # LLM 引擎 (OpenAI 兼容统一接口，支持 tool_calls 流式解析)
-│   │   ├── tools/              # 内置工具注册表 (web_search)
+│   │   ├── tools/              # 工具基类和注册表
 │   │   ├── rag/                # RAG 流水线 (loader → chunker → embedder → vector_store → retriever)
 │   │   └── db/                 # 数据库和 Redis 连接
 │   └── alembic/                # 数据库迁移
-├── mcp-servers/                # 独立 MCP Server 进程
-│   ├── weather/                # 天气查询 MCP Server (wttr.in)
-│   └── timezone/               # 时区查询 MCP Server (Python stdlib)
+├── mcp-servers/                # MCP Server (Docker 容器)
+│   ├── weather/                # 天气查询 (wttr.in, 端口 9100)
+│   ├── timezone/               # 时区查询 (Python stdlib, 端口 9101)
+│   ├── web_search/             # 网页搜索 (Tavily API, 端口 9102)
+│   ├── Dockerfile              # 共享 Dockerfile
+│   └── requirements.txt        # 共享依赖
 ├── frontend/src/
 │   ├── views/                  # 页面组件 (ChatView, KnowledgeView, ModelsView, McpView, Login...)
 │   ├── components/

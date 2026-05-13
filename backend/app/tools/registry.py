@@ -1,10 +1,7 @@
 """Built-in tool registry."""
 from app.tools.base import BuiltinTool
-from app.tools.web_search import WebSearchTool
 
-BUILTIN_TOOLS: dict[str, BuiltinTool] = {
-    "web_search": WebSearchTool(),
-}
+BUILTIN_TOOLS: dict[str, BuiltinTool] = {}
 
 
 def get_tool(name: str) -> BuiltinTool | None:

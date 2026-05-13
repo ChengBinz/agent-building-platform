@@ -33,9 +33,6 @@ pydantic-settings==2.7.*
 python-dotenv==1.0.*
 cryptography==44.0.*
 
-# Web Search
-tavily-python==0.5.*
-
 # Optional
 redis==5.2.*
 slowapi==0.1.*

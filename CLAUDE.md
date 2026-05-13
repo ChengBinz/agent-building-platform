@@ -44,7 +44,7 @@ Backend automatically runs `alembic upgrade head` on startup via `scripts/start.
 - `backend/app/db/session.py` — async SQLAlchemy engine + session factory; `get_db` yields a session that auto-commits on success and rolls back on exception
 - `backend/app/models/` — SQLAlchemy ORM models: all tables use UUID PKs via `UUIDMixin` and timestamps via `TimestampMixin`; relationships use `lazy="selectin"`
 - `backend/app/schemas/` — Pydantic request/response schemas
-- `backend/app/services/` — business logic, one service class per domain; each receives `AsyncSession` via constructor. `tool_service.py` is a stateless module (no class) providing unified tool resolution and execution across built-in and MCP tools
+- `backend/app/services/` — business logic, one service class per domain; each receives `AsyncSession` via constructor. `tool_service.py` is a stateless module (no class) providing unified tool resolution and execution via MCP
 - `backend/app/config.py` — `pydantic-settings` reading from `.env`
 
 ### Agents System
@@ -53,11 +53,10 @@ Users interact with "agents" rather than raw LLM models. Each agent has: `name`,
 
 ### Tool Calling System
 
-LLM-driven function calling via a decoupled architecture:
+LLM-driven function calling via MCP (Model Context Protocol):
 
 ```
-chat_service → tool_service → 内置工具 (web_search)
-                            → MCP 工具 → mcp_client → MCP Server (HTTP JSON-RPC)
+chat_service → tool_service → mcp_client → MCP Server (HTTP JSON-RPC)
 ```
 
 - **Tool selection**: Users select tools when creating/editing an Agent (`AgentDialog.vue`)
@@ -68,23 +67,24 @@ chat_service → tool_service → 内置工具 (web_search)
 Key files:
 - `backend/app/services/tool_service.py` — unified interface: `get_tool_schemas()`, `execute_tool()`, `get_all_tools_info()`
 - `backend/app/services/mcp_client.py` — MCP HTTP client: `call_mcp_tool()`, `discover_tools()`
-- `backend/app/tools/registry.py` — built-in tool registry (web_search only)
 - `backend/app/engine/openai_compat.py` — streaming `delta.tool_calls` parsing and assembly
 
 ### MCP Servers
 
-Standalone processes implementing the MCP protocol (JSON-RPC 2.0 over HTTP). Located in `mcp-servers/`:
+Dockerized services implementing the MCP protocol (JSON-RPC 2.0 over HTTP). Located in `mcp-servers/`:
 
 - `mcp-servers/weather/server.py` — weather lookup via wttr.in (port 9100)
 - `mcp-servers/timezone/server.py` — timezone lookup via Python stdlib (port 9101)
+- `mcp-servers/web_search/server.py` — web search via Tavily API (port 9102)
+
+All MCP servers run as Docker containers on `agent-net` network. Shared Dockerfile at `mcp-servers/Dockerfile`.
 
 MCP servers expose:
 - `POST /` — JSON-RPC endpoint (methods: `initialize`, `tools/list`, `tools/call`)
-- `GET /sse` — SSE transport endpoint
 
 User workflow: register MCP server URL in the MCP page → sync tools → select tools on Agent → LLM auto-invokes them.
 
-**Note**: From Docker containers, MCP servers on the host must be accessed via `host.docker.internal` (not `localhost`).
+**Note**: From Docker containers, use Docker internal URLs (e.g., `http://mcp-weather:9100`).
 
 ### LLM Engine (`backend/app/engine/`)
 
@@ -146,7 +146,7 @@ Multi-turn memory via LLM summarization with Redis caching:
 | `/api/v1/` | `users.py` | user profile management |
 | `/api/v1/` | `admin.py` | user management + system stats (superuser only) |
 | `/api/v1/mcp/` | `mcp.py` | MCP servers CRUD + connection test + tool sync; MCP tools list + toggle |
-| `/api/v1/tools` | `tools.py` | list all available tools (built-in + MCP) for current user |
+| `/api/v1/tools` | `tools.py` | list all available MCP tools for current user |
 | `/api/v1/skills` | `skill.py` | system skills list; user skills CRUD + toggle |
 | `/health` | `main.py` | health check |
 
@@ -224,4 +224,4 @@ views/
 - **Dependencies**: Python via `requirements.txt`; Node via `package.json` + `package-lock.json`
 - **Admin registration gate**: Requires `ADMIN_REGISTRATION_CODE` env var
 - **Database migrations**: Backend runs `alembic upgrade head` on startup via `scripts/start.sh`. After model changes, generate migration with `alembic revision --autogenerate`
-- **MCP servers**: Standalone FastAPI processes in `mcp-servers/`; no MCP SDK dependency — uses plain HTTP JSON-RPC. From Docker containers, access host MCP servers via `host.docker.internal`
+- **MCP servers**: Dockerized FastAPI services in `mcp-servers/`; no MCP SDK dependency — uses plain HTTP JSON-RPC. Shared Dockerfile, each service runs on `agent-net` with container names like `mcp-weather`, `mcp-timezone`, `mcp-web-search`

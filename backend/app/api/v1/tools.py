@@ -14,5 +14,5 @@ async def list_tools(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all available tools (built-in + MCP) for the current user."""
+    """List all available MCP tools for the current user."""
     return await tool_service.get_all_tools_info(current_user.id, db)

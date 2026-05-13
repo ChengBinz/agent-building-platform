@@ -40,6 +40,39 @@ services:
     networks:
       - agent-net
 
+  # ─── MCP Servers ───
+  mcp-weather:
+    build:
+      context: ./mcp-servers
+      dockerfile: Dockerfile
+    container_name: agent-mcp-weather
+    command: uvicorn weather.server:app --host 0.0.0.0 --port 9100
+    restart: unless-stopped
+    networks:
+      - agent-net
+
+  mcp-timezone:
+    build:
+      context: ./mcp-servers
+      dockerfile: Dockerfile
+    container_name: agent-mcp-timezone
+    command: uvicorn timezone.server:app --host 0.0.0.0 --port 9101
+    restart: unless-stopped
+    networks:
+      - agent-net
+
+  mcp-web-search:
+    build:
+      context: ./mcp-servers
+      dockerfile: Dockerfile
+    container_name: agent-mcp-web-search
+    command: uvicorn web_search.server:app --host 0.0.0.0 --port 9102
+    environment:
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+    restart: unless-stopped
+    networks:
+      - agent-net
+
   # ─── Frontend Builder ───
   frontend:
     build:
