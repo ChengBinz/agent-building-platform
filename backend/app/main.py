@@ -7,15 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.v1.router import api_router
 from app.db.session import engine
-from app.models.base import Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs("/app/data/uploads", exist_ok=True)
-    # Startup: create tables if not exist (dev convenience; production uses Alembic)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
     # Shutdown
     await engine.dispose()

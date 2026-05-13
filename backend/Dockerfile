@@ -16,9 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+RUN chmod +x scripts/start.sh
 RUN chown -R appuser:appuser /app
 
 USER appuser
 
-# Start server (tables auto-created via SQLAlchemy create_all)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Run migrations then start server
+CMD ["./scripts/start.sh"]
