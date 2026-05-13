@@ -48,22 +48,27 @@ async def _web_search(query: str, max_results: int = 3) -> str:
         resp.raise_for_status()
         data = resp.json()
 
-    answer = data.get("answer", "")
     results = data.get("results", [])
 
-    if not results and not answer:
+    if not results:
         return f"未找到与「{query}」相关的搜索结果。"
 
-    parts = []
-    if answer:
-        parts.append(f"综合回答: {answer}")
+    import re
 
-    for i, r in enumerate(results, 1):
-        title = r.get("title", "")
-        snippet = r.get("content", "")
-        if len(snippet) > 200:
-            snippet = snippet[:200] + "..."
-        parts.append(f"{i}. {title} — {snippet}")
+    def clean_text(text: str) -> str:
+        """Remove markdown artifacts and normalize whitespace."""
+        text = re.sub(r'[#*_`~]', '', text)  # remove markdown markers
+        text = text.replace("\n", " ").replace("  ", " ")
+        return text.strip()
+
+    parts = []
+    for r in results:
+        title = clean_text(r.get("title", ""))
+        url = r.get("url", "")
+        snippet = clean_text(r.get("content", ""))
+        if len(snippet) > 300:
+            snippet = snippet[:300].rsplit(" ", 1)[0] + "..."
+        parts.append(f"- **[{title}]({url})**\n  {snippet}")
 
     return "\n".join(parts)
 
