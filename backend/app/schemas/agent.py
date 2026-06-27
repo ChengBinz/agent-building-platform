@@ -9,7 +9,7 @@ class AgentCreate(BaseModel):
     description: str | None = None
     avatar: str | None = None
     system_prompt: str | None = None
-    model_name: str = "deepseek-v4-flash"
+    model_name: str = "deepseek-chat"
     provider: str = "deepseek"
     tools: list[str] | None = None
     kb_ids: list[UUID] | None = None

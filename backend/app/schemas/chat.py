@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 class ConversationCreate(BaseModel):
     title: str = "新的对话"
-    model_name: str = "deepseek-v4-flash"
+    model_name: str = "deepseek-chat"
     provider: str = "deepseek"
     system_prompt: str | None = None
     agent_id: UUID | None = None

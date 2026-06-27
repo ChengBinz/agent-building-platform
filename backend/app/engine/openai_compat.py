@@ -43,18 +43,42 @@ class OpenAICompatProvider(LLMProvider):
     async def generate_stream(
         self, messages: list[dict], model: str, **kwargs
     ) -> AsyncGenerator[StreamChunk, None]:
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            stream=True,
-            **kwargs,
-        )
+        # 要求上游返回真实 token 用量（OpenAI 兼容协议）。
+        # 部分提供商（Anthropic 兼容、Ollama 等）可能忽略此参数，
+        # 没有也不影响主流程。
+        stream_options = kwargs.pop("stream_options", None) or {"include_usage": True}
+        try:
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+                stream_options=stream_options,
+                **kwargs,
+            )
+        except TypeError:
+            # 某些 base_url 的兼容实现不接受 stream_options 参数，退回不带它的调用
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+                **kwargs,
+            )
 
         # Accumulate streaming tool calls
         accumulated_tool_calls: dict[int, dict] = {}
         in_think = False
+        usage_payload: dict | None = None
 
         async for chunk in response:
+            # Capture usage stats (typically arrives on the final chunk)
+            chunk_usage = getattr(chunk, "usage", None)
+            if chunk_usage:
+                usage_payload = {
+                    "prompt_tokens": getattr(chunk_usage, "prompt_tokens", 0) or 0,
+                    "completion_tokens": getattr(chunk_usage, "completion_tokens", 0) or 0,
+                    "total_tokens": getattr(chunk_usage, "total_tokens", 0) or 0,
+                }
+
             delta = chunk.choices[0].delta if chunk.choices else None
             if not delta:
                 continue
@@ -113,3 +137,7 @@ class OpenAICompatProvider(LLMProvider):
         # Yield assembled tool calls at the end of the stream
         if accumulated_tool_calls:
             yield {"tool_calls": [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]}
+
+        # Final usage chunk — consumers MAY ignore this.
+        if usage_payload is not None:
+            yield {"usage": usage_payload}

@@ -95,3 +95,26 @@ async def get_all_tools_info(user_id: uuid.UUID, db: AsyncSession) -> list[dict]
         })
 
     return tools
+
+
+# 用于识别一个 MCP 工具是否属于「网页搜索」类
+_WEB_SEARCH_KEYWORDS = ("web_search", "websearch", "tavily", "search_web", "google_search", "bing_search")
+
+
+async def find_web_search_tools(user_id: uuid.UUID, db: AsyncSession) -> list[str]:
+    """返回该用户名下所有「网页搜索」类 MCP 工具的 name 列表。
+
+    匹配规则：tool.name 或 tool.description 中含有关键词（不区分大小写）。
+    """
+    result = await db.execute(
+        select(MCPTool).where(
+            MCPTool.user_id == user_id,
+            MCPTool.is_active == True,
+        )
+    )
+    matched: list[str] = []
+    for t in result.scalars().all():
+        haystack = f"{t.name} {t.description or ''}".lower()
+        if any(kw in haystack for kw in _WEB_SEARCH_KEYWORDS):
+            matched.append(t.name)
+    return matched

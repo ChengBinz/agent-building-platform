@@ -43,9 +43,7 @@
       "url": "https://api.deepseek.com/v1",
       "llm": [
         { "llm_name": "deepseek-chat",     "tags": "LLM,CHAT,64k",  "max_tokens": 65536,  "model_type": "chat", "is_tools": true },
-        { "llm_name": "deepseek-reasoner", "tags": "LLM,CHAT,64k",  "max_tokens": 65536,  "model_type": "chat", "is_tools": false },
-        { "llm_name": "deepseek-v4-flash", "tags": "LLM,CHAT,1M",   "max_tokens": 1000000,"model_type": "chat", "is_tools": true },
-        { "llm_name": "deepseek-v4-pro",   "tags": "LLM,CHAT,1M",   "max_tokens": 1000000,"model_type": "chat", "is_tools": true }
+        { "llm_name": "deepseek-reasoner", "tags": "LLM,CHAT,64k",  "max_tokens": 65536,  "model_type": "chat", "is_tools": false }
       ]
     },
     {

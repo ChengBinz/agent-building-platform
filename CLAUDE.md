@@ -186,7 +186,7 @@ views/
 
 ### Default Models
 
-- **Default LLM**: `deepseek-v4-flash` (provider: deepseek)
+- **Default LLM**: `deepseek-chat` (provider: deepseek)
 - **Default Embedding**: `text-embedding-v4` (provider: dashscope, base URL: `https://dashscope.aliyuncs.com/compatible-mode/v1`)
 - Embedding API key must be configured by user via Models page — not hardcoded in config
 

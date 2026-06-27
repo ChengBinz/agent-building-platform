@@ -122,7 +122,7 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("avatar", sa.String(512), nullable=True),
         sa.Column("system_prompt", sa.Text(), nullable=True),
-        sa.Column("model_name", sa.String(128), nullable=False, server_default="deepseek-v4-flash"),
+        sa.Column("model_name", sa.String(128), nullable=False, server_default="deepseek-chat"),
         sa.Column("provider", sa.String(32), nullable=False, server_default="deepseek"),
         sa.Column("tools", postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column("kb_ids", postgresql.ARRAY(sa.UUID()), nullable=True),

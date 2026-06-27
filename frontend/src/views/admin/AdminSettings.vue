@@ -25,7 +25,7 @@
         <el-descriptions-item label="数据库">PostgreSQL 16 + pgvector</el-descriptions-item>
         <el-descriptions-item label="向量数据库">Qdrant</el-descriptions-item>
         <el-descriptions-item label="缓存">Redis (可选)</el-descriptions-item>
-        <el-descriptions-item label="默认 LLM">deepseek-v4-flash</el-descriptions-item>
+        <el-descriptions-item label="默认 LLM">deepseek-chat</el-descriptions-item>
         <el-descriptions-item label="默认嵌入模型">text-embedding-v4</el-descriptions-item>
         <el-descriptions-item label="分块大小">{{ CHUNK_SIZE }}</el-descriptions-item>
       </el-descriptions>

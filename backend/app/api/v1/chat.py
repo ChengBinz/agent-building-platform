@@ -97,11 +97,21 @@ async def send_message_stream(
             try:
                 service = ChatService(db)
                 async for chunk in service.send_message_stream(current_user.id, conversation_id, data):
-                    yield chunk
-                await db.commit()
-            except Exception:
+                    if chunk == "data: [DONE]\n\n":
+                        # 关键：先 commit，再把 [DONE] 推给前端。
+                        # 否则前端收到 [DONE] 后立刻发 GET /conversations/{id}，
+                        # 此时本事务还没提交，前端会拿到「空 messages」而看不到刚发的消息。
+                        await db.commit()
+                        yield chunk
+                    else:
+                        yield chunk
+            except Exception as e:
+                # 在 SSE 流中抛异常会让前端只看到 "network error"，
+                # 这里捕获并以 data 事件传出错误，再正常结束流。
                 await db.rollback()
-                raise
+                msg = str(e).replace("\n", " ")
+                yield f"data: ❌ 服务器内部错误：{msg}\n\n"
+                yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         stream_with_session(),

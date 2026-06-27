@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
     # Default models
-    DEFAULT_LLM_MODEL: str = "deepseek-v4-flash"
+    DEFAULT_LLM_MODEL: str = "deepseek-chat"
     DEFAULT_EMBEDDING_MODEL: str = "text-embedding-v4"
     EMBEDDING_API_KEY: str = ""
     EMBEDDING_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"

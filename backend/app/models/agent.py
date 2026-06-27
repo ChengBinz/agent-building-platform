@@ -17,7 +17,7 @@ class Agent(Base, UUIDMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     avatar: Mapped[str | None] = mapped_column(String(512))
     system_prompt: Mapped[str | None] = mapped_column(Text)
-    model_name: Mapped[str] = mapped_column(String(128), default="deepseek-v4-flash", nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), default="deepseek-chat", nullable=False)
     provider: Mapped[str] = mapped_column(String(32), default="deepseek", nullable=False)
     tools: Mapped[list[str] | None] = mapped_column(ARRAY(String), default=[])
     kb_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(UUID(as_uuid=True)), default=[])

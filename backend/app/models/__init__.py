@@ -10,6 +10,7 @@ from app.models.document import Document
 from app.models.usage_log import UsageLog
 from app.models.mcp import MCPServer, MCPTool
 from app.models.skill import Skill
+from app.models.conversation_memory import ConversationMemory
 
 __all__ = [
     "Base",
@@ -24,4 +25,5 @@ __all__ = [
     "UsageLog",
     "MCPServer", "MCPTool",
     "Skill",
+    "ConversationMemory",
 ]

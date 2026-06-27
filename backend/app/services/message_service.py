@@ -1,6 +1,8 @@
 """Message sending (stream/non-stream), LLM provider resolution, message history building."""
+import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
@@ -13,8 +15,10 @@ from app.engine.registry import get_provider
 from app.models.api_key import ApiKey
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.usage_log import UsageLog
 from app.schemas.chat import SendMessageRequest, SendMessageResponse
 from app.services import tool_service
+from app.services import memory_service
 from app.services.conversation_service import ConversationService
 from app.services.rag_service import RAGService
 
@@ -47,6 +51,12 @@ _FACTORY_ALIASES: dict[str, list[str]] = {
 
 MAX_TOOL_ROUNDS = 5
 
+# 调用 LLM 时最多保留多少条最近的对话历史（更早的会被摘要替代）
+HISTORY_WINDOW = 10
+
+# 摘要后台任务防 GC
+_summary_background_tasks: set[asyncio.Task] = set()
+
 
 class MessageService:
     def __init__(self, db: AsyncSession):
@@ -70,16 +80,43 @@ class MessageService:
 
         full_response = ""
         full_thinking = ""
-        async for chunk in provider.generate_stream(messages, conv.model_name):
-            if chunk.get("reasoning"):
-                full_thinking += chunk["reasoning"]
-            full_response += chunk["token"]
+        usage_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        start_ts = time.time()
+        log_status = "success"
+        log_error: str | None = None
 
-        if not full_response and not full_thinking:
-            full_response = "(模型返回了空回复)"
+        try:
+            async for chunk in provider.generate_stream(messages, conv.model_name):
+                if chunk.get("reasoning"):
+                    full_thinking += chunk["reasoning"]
+                full_response += chunk.get("token", "")
+                chunk_usage = chunk.get("usage")
+                if chunk_usage:
+                    usage_total["prompt_tokens"] += chunk_usage.get("prompt_tokens", 0) or 0
+                    usage_total["completion_tokens"] += chunk_usage.get("completion_tokens", 0) or 0
+                    usage_total["total_tokens"] += chunk_usage.get("total_tokens", 0) or 0
+        except Exception as e:
+            log_status = "failed"
+            log_error = str(e)[:500]
+            raise
+        finally:
+            if not full_response and not full_thinking and log_status == "success":
+                full_response = "(模型返回了空回复)"
 
-        await self._save_assistant_response(conv, full_response, full_thinking, [])
-        await self._update_conversation_counters(conv)
+            await self._save_assistant_response(conv, full_response, full_thinking, [])
+            await self._record_usage(
+                user_id=user_id,
+                conv=conv,
+                usage=usage_total,
+                fallback_text=full_response + full_thinking,
+                start_ts=start_ts,
+                status_=log_status,
+                error_message=log_error,
+            )
+            await self._update_conversation_counters(conv)
+
+        # —— 触发后台摘要任务（不阻塞响应） ——
+        self._schedule_summary_task(user_id, conv, api_key, base_url)
 
         return SendMessageResponse(role="assistant", content=full_response)
 
@@ -95,13 +132,30 @@ class MessageService:
         await self._save_user_message(conv, data.content)
         messages = await self._build_messages(conv, data.content)
 
-        api_key, base_url = await self._get_api_key(user_id, conv.provider)
+        # 在进入真正的 SSE 流之前先校验 API Key，失败时以 SSE 错误事件返回，
+        # 避免响应头已发出后再抛 HTTPException 导致前端只看到 "network error"
+        try:
+            api_key, base_url = await self._get_api_key(user_id, conv.provider)
+        except HTTPException as e:
+            detail = e.detail if isinstance(e.detail, str) else str(e.detail)
+            yield f"data: ❌ {detail}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
         provider = get_provider(conv.provider, api_key, base_url)
 
         # Load agent tools
         agent_tool_names: list[str] = []
         if conv.agent and conv.agent.tools:
-            agent_tool_names = conv.agent.tools
+            agent_tool_names = list(conv.agent.tools)
+
+        # 用户在本轮对话开启了「联网搜索」时，动态把搜索类工具临时加入工具列表
+        if data.enable_web_search:
+            extra = await tool_service.find_web_search_tools(user_id, self.db)
+            for name in extra:
+                if name not in agent_tool_names:
+                    agent_tool_names.append(name)
+
         tool_schemas = (
             await tool_service.get_tool_schemas(agent_tool_names, user_id, self.db)
             if agent_tool_names
@@ -113,6 +167,12 @@ class MessageService:
         in_thinking = False
         tool_call_messages: list[dict] = []
 
+        # —— Token 用量统计 ——
+        usage_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        start_ts = time.time()
+        log_status = "success"
+        log_error: str | None = None
+
         try:
             # ── LLM call loop with tool calling ──
             for round_idx in range(MAX_TOOL_ROUNDS + 1):
@@ -122,7 +182,10 @@ class MessageService:
                 stream_kwargs = {}
                 if tool_schemas:
                     stream_kwargs["tools"] = tool_schemas
-                    stream_kwargs["tool_choice"] = "auto"
+                    # 最后一轮强制 LLM 给出文本回复，避免继续调用工具但被强制截断
+                    stream_kwargs["tool_choice"] = (
+                        "none" if round_idx >= MAX_TOOL_ROUNDS else "auto"
+                    )
 
                 logger.info(
                     f"[Tool Loop] Round {round_idx}, messages count: {len(messages)}"
@@ -134,6 +197,12 @@ class MessageService:
                     reasoning = chunk.get("reasoning")
                     token = chunk.get("token", "")
                     tool_calls = chunk.get("tool_calls")
+                    chunk_usage = chunk.get("usage")
+
+                    if chunk_usage:
+                        usage_total["prompt_tokens"] += chunk_usage.get("prompt_tokens", 0) or 0
+                        usage_total["completion_tokens"] += chunk_usage.get("completion_tokens", 0) or 0
+                        usage_total["total_tokens"] += chunk_usage.get("total_tokens", 0) or 0
 
                     if tool_calls:
                         collected_tool_calls = tool_calls
@@ -200,6 +269,8 @@ class MessageService:
                     yield f'data: [TOOL_RESULT]{json.dumps({"name": func_name, "result": tool_result}, ensure_ascii=False)}\n\n'
 
         except Exception as e:
+            log_status = "failed"
+            log_error = str(e)[:500]
             if in_thinking:
                 yield "data: [/THINKING]\n\n"
             yield f"data: LLM 调用失败: {str(e)}\n\n"
@@ -214,7 +285,22 @@ class MessageService:
         await self._save_assistant_response(
             conv, full_response, full_thinking, tool_call_messages
         )
+
+        # 写入 token 用量日志
+        await self._record_usage(
+            user_id=user_id,
+            conv=conv,
+            usage=usage_total,
+            fallback_text=full_response + full_thinking,
+            start_ts=start_ts,
+            status_=log_status,
+            error_message=log_error,
+        )
+
         await self._update_conversation_counters(conv)
+
+        # —— 触发后台摘要任务（不阻塞响应） ——
+        self._schedule_summary_task(user_id, conv, api_key, base_url)
 
         yield "data: [DONE]\n\n"
 
@@ -262,10 +348,24 @@ class MessageService:
     async def _build_messages(
         self, conv: Conversation, current_content: str
     ) -> list[dict]:
-        """Build LLM message list: system prompt + RAG context + history."""
+        """Build LLM message list: system prompt + memory summary + RAG context + history."""
         messages: list[dict] = []
         if conv.system_prompt:
             messages.append({"role": "system", "content": conv.system_prompt})
+
+        # —— 对话记忆摘要注入（如有） ——
+        summary, summarized_up_to = await memory_service.get_summary(
+            self.db, conv.id
+        )
+        if summary:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "以下是该对话此前内容的摘要，请把它当作背景：\n" + summary
+                    ),
+                }
+            )
 
         # RAG context injection
         if conv.kb_ids:
@@ -275,12 +375,30 @@ class MessageService:
             if rag_context:
                 messages.append({"role": "system", "content": rag_context})
 
-        result = await self.db.execute(
-            select(Message)
-            .where(Message.conversation_id == conv.id)
-            .order_by(Message.created_at.asc())
-        )
-        for msg in result.scalars().all():
+        # —— 只取最近 HISTORY_WINDOW 条历史（如果已有摘要，则跳过已摘要的部分） ——
+        # 优先级：if has summary → 取摘要点之后的所有；否则 → 取最近 HISTORY_WINDOW 条
+        if summary and summarized_up_to > 0:
+            stmt = (
+                select(Message)
+                .where(Message.conversation_id == conv.id)
+                .order_by(Message.created_at.asc())
+                .offset(summarized_up_to)
+            )
+        else:
+            # 取最近 N 条（用子查询反转排序拿最后 N 条，再正向排好）
+            stmt = (
+                select(Message)
+                .where(Message.conversation_id == conv.id)
+                .order_by(Message.created_at.desc())
+                .limit(HISTORY_WINDOW)
+            )
+
+        result = await self.db.execute(stmt)
+        rows = list(result.scalars().all())
+        if not (summary and summarized_up_to > 0):
+            rows.reverse()  # 反转回正序
+
+        for msg in rows:
             entry = {"role": msg.role, "content": msg.content}
             if msg.role == "assistant" and msg.tool_calls:
                 entry["tool_calls"] = [
@@ -343,7 +461,8 @@ class MessageService:
                     asst_msg = Message(
                         conversation_id=conv.id,
                         role="assistant",
-                        content=tm.get("content"),
+                        # 仅有 tool_calls 而无文字时 content 为空字符串而非 NULL
+                        content=tm.get("content") or "",
                         tool_calls=tool_calls_data,
                         token_count=len(tm.get("content") or "") // 2,
                         created_at=now,
@@ -354,7 +473,7 @@ class MessageService:
                     tool_db_msg = Message(
                         conversation_id=conv.id,
                         role="tool",
-                        content=tm["content"],
+                        content=tm.get("content") or "",
                         tool_calls=[{"id": tm["tool_call_id"]}],
                         created_at=now,
                         updated_at=now,
@@ -364,13 +483,15 @@ class MessageService:
         assistant_msg = Message(
             conversation_id=conv.id,
             role="assistant",
-            content=full_response,
+            content=full_response or "",
             thinking_content=full_thinking or None,
             token_count=(len(full_response) + len(full_thinking)) // 2,
             created_at=now,
             updated_at=now,
         )
         self.db.add(assistant_msg)
+        # 提前 flush，让消息写入错误立即暴露而不是被后续 _record_usage 的 try/except 误吞
+        await self.db.flush()
 
     async def _update_conversation_counters(self, conv: Conversation) -> None:
         conv.message_count = (
@@ -390,3 +511,96 @@ class MessageService:
             or 0
         )
         await self.db.flush()
+
+    def _schedule_summary_task(
+        self,
+        user_id: uuid.UUID,
+        conv: Conversation,
+        api_key: str,
+        base_url: str,
+    ) -> None:
+        """非阻塞地触发后台摘要任务，幂等。"""
+        if not conv or not conv.model_name or not api_key:
+            return
+        try:
+            task = asyncio.create_task(
+                memory_service.check_and_summarize_async(
+                    conversation_id=conv.id,
+                    api_key=api_key,
+                    base_url=base_url or "",
+                    provider=conv.provider or "",
+                    model=conv.model_name,
+                )
+            )
+            _summary_background_tasks.add(task)
+            task.add_done_callback(_summary_background_tasks.discard)
+        except Exception as e:
+            logger.warning(f"Failed to schedule summary task: {e}")
+
+    async def _record_usage(
+        self,
+        *,
+        user_id: uuid.UUID,
+        conv: Conversation,
+        usage: dict,
+        fallback_text: str,
+        start_ts: float,
+        status_: str,
+        error_message: str | None,
+    ) -> None:
+        """落库一条 token 用量日志。优先用 provider 返回的真实 usage，
+        拿不到时用 tiktoken 本地估算。"""
+        prompt_tokens = int(usage.get("prompt_tokens") or 0)
+        completion_tokens = int(usage.get("completion_tokens") or 0)
+        total_tokens = int(usage.get("total_tokens") or 0)
+
+        if total_tokens == 0:
+            # 兜底：tiktoken 估算 completion，prompt 留 0
+            completion_tokens = _estimate_tokens(fallback_text)
+            total_tokens = completion_tokens
+
+        try:
+            self.db.add(
+                UsageLog(
+                    user_id=user_id,
+                    conversation_id=conv.id,
+                    model_name=conv.model_name or "unknown",
+                    provider=conv.provider or "unknown",
+                    request_type="chat",
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    latency_ms=int((time.time() - start_ts) * 1000),
+                    status=status_,
+                    error_message=error_message,
+                )
+            )
+            await self.db.flush()
+        except Exception as e:
+            # 日志写入失败不影响主流程
+            logger.warning(f"Failed to write UsageLog: {e}")
+
+
+# ── Token estimation fallback ────────────────────────────────────────
+
+_TIKTOKEN_ENC = None
+
+
+def _estimate_tokens(text: str) -> int:
+    """优先用 tiktoken 估算，不可用时回退到字符数粗估。"""
+    if not text:
+        return 0
+    global _TIKTOKEN_ENC
+    if _TIKTOKEN_ENC is None:
+        try:
+            import tiktoken
+            _TIKTOKEN_ENC = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            _TIKTOKEN_ENC = False  # 标记不可用，避免重复 import
+    if _TIKTOKEN_ENC and _TIKTOKEN_ENC is not False:
+        try:
+            return len(_TIKTOKEN_ENC.encode(text))
+        except Exception:
+            pass
+    # 粗估：中文/英文混合大约 1.5 字符/token
+    return max(1, len(text) * 2 // 3)

@@ -14,7 +14,8 @@ class Message(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(16), nullable=False)  # user, assistant, system, tool
-    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # content 可以为 None：assistant 仅返回 tool_calls 而无文字时即如此
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
     thinking_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     tool_calls: Mapped[dict | None] = mapped_column(JSONB)  # [{name, args, result}]
     token_count: Mapped[int | None] = mapped_column(Integer)
